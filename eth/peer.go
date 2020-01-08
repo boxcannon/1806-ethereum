@@ -40,11 +40,14 @@ var (
 const (
 	maxKnownTxs    = 32768 // Maximum transactions hashes to keep in the known list (prevent DOS)
 	maxKnownBlocks = 1024  // Maximum block hashes to keep in the known list (prevent DOS)
+	maxKnownFrags  = 32768 // Maximum Fragment hashes to keep in the known list (prevent DOS)
 
 	// maxQueuedTxs is the maximum number of transaction lists to queue up before
 	// dropping broadcasts. This is a sensitive number as a transaction list might
 	// contain a single transaction, or thousands.
 	maxQueuedTxs = 128
+
+	maxQueuedFrags = 128
 
 	// maxQueuedProps is the maximum number of block propagations to queue up before
 	// dropping broadcasts. There's not much point in queueing stale blocks, so a few
@@ -88,10 +91,12 @@ type peer struct {
 
 	knownTxs    mapset.Set                // Set of transaction hashes known to be known by this peer
 	knownBlocks mapset.Set                // Set of block hashes known to be known by this peer
+	knownFrags  mapset.Set                // Set of fragment hashes known to be knwon by this peer
 	queuedTxs   chan []*types.Transaction // Queue of transactions to broadcast to the peer
 	queuedProps chan *propEvent           // Queue of blocks to broadcast to the peer
 	queuedAnns  chan *types.Block         // Queue of blocks to announce to the peer
-	term        chan struct{}             // Termination channel to stop the broadcaster
+	queuedFrags chan []*types.Fragment
+	term        chan struct{} // Termination channel to stop the broadcaster
 }
 
 func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
@@ -102,9 +107,11 @@ func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
 		id:          fmt.Sprintf("%x", p.ID().Bytes()[:8]),
 		knownTxs:    mapset.NewSet(),
 		knownBlocks: mapset.NewSet(),
+		knownFrags:  mapset.NewSet(),
 		queuedTxs:   make(chan []*types.Transaction, maxQueuedTxs),
 		queuedProps: make(chan *propEvent, maxQueuedProps),
 		queuedAnns:  make(chan *types.Block, maxQueuedAnns),
+		queuedFrags: make(chan []*types.Fragment, maxQueuedFrags),
 		term:        make(chan struct{}),
 	}
 }
@@ -132,7 +139,13 @@ func (p *peer) broadcast() {
 				return
 			}
 			p.Log().Trace("Announced block", "number", block.Number(), "hash", block.Hash())
-
+		/*
+			case frags := <-p.queuedFrags:
+				if err := p.SendFragments(frags); err != nil {
+					return
+				}
+				p.Log().Trace("Broadcast fragments", "count", len(frags))
+		*/
 		case <-p.term:
 			return
 		}
@@ -192,6 +205,15 @@ func (p *peer) MarkTransaction(hash common.Hash) {
 		p.knownTxs.Pop()
 	}
 	p.knownTxs.Add(hash)
+}
+
+// MarkFragment marks a fragment as known for the peer, ensuring that it
+// will never be propagated to this particular peer.
+func (p *peer) MarkFragment(hash common.Hash) {
+	for p.knownFrags.Cardinality() >= maxKnownFrags {
+		p.knownFrags.Pop()
+	}
+	p.knownFrags.Add(hash)
 }
 
 // SendTransactions sends transactions to the peer and includes the hashes
