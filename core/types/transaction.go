@@ -200,6 +200,11 @@ func (tx *Transaction) Hash() common.Hash {
 	return v
 }
 
+func (fragment *Fragment) Hash() common.Hash {
+	v := rlpHash(fragment)
+	return v
+}
+
 // Size returns the true RLP encoded storage size of the transaction, either by
 // encoding and returning it, or returning a previsouly cached value.
 func (tx *Transaction) Size() common.StorageSize {
@@ -257,6 +262,9 @@ func (tx *Transaction) Cost() *big.Int {
 func (tx *Transaction) RawSignatureValues() (v, r, s *big.Int) {
 	return tx.data.V, tx.data.R, tx.data.S
 }
+
+// Fragments is a Fragment slice type for basic sorting
+type Fragments []*Fragment
 
 // Transactions is a Transaction slice type for basic sorting.
 type Transactions []*Transaction

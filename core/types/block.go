@@ -143,6 +143,13 @@ type Body struct {
 	Uncles       []*Header
 }
 
+// Fragment of Block or Transactions
+type Fragment struct {
+	code        []byte
+	fingerprint int16
+	pos         int8
+}
+
 // Block represents an entire block in the Ethereum blockchain.
 type Block struct {
 	header       *Header
