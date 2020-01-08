@@ -800,6 +800,40 @@ func (pm *ProtocolManager) BroadcastTxs(txs types.Transactions) {
 	}
 }
 
+func (pm *ProtocolManager) BroadcastTxFrags(frags types.Fragments) {
+	var fragset = make(map[*peer]types.Fragments)
+
+	// Broadcast transactions to a batch of peers not knowing about it
+	for _, frag := range frags {
+		peers := pm.peers.PeersWithoutTxFrag(frag.Hash())
+		for _, peer := range peers {
+			fragset[peer] = append(fragset[peer], frag)
+		}
+		log.Trace("Broadcast transaction fragments", "hash", frag.Hash(), "recipients", len(peers))
+	}
+	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
+	for peer, frags := range fragset {
+		peer.AsyncSendTxFrags(frags)
+	}
+}
+
+func (pm *ProtocolManager) BroadcastBlockFrags(frags types.Fragments) {
+	var fragset = make(map[*peer]types.Fragments)
+
+	// Broadcast transactions to a batch of peers not knowing about it
+	for _, frag := range frags {
+		peers := pm.peers.PeersWithoutBlockFrag(frag.Hash())
+		for _, peer := range peers {
+			fragset[peer] = append(fragset[peer], frag)
+		}
+		log.Trace("Broadcast block fragments", "hash", frag.Hash(), "recipients", len(peers))
+	}
+	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
+	for peer, frags := range fragset {
+		peer.AsyncSendBlockFrags(frags)
+	}
+}
+
 // Mined broadcast loop
 func (pm *ProtocolManager) minedBroadcastLoop() {
 	// automatically stops if unsubscribe

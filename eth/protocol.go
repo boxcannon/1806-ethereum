@@ -60,6 +60,8 @@ const (
 	NodeDataMsg        = 0x0e
 	GetReceiptsMsg     = 0x0f
 	ReceiptsMsg        = 0x10
+	TxFragMsg          = 0x11
+	BlockFragMsg       = 0x12
 )
 
 type errCode int

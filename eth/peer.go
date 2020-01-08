@@ -38,9 +38,10 @@ var (
 )
 
 const (
-	maxKnownTxs    = 32768 // Maximum transactions hashes to keep in the known list (prevent DOS)
-	maxKnownBlocks = 1024  // Maximum block hashes to keep in the known list (prevent DOS)
-
+	maxKnownTxs        = 32768 // Maximum transactions hashes to keep in the known list (prevent DOS)
+	maxKnownBlocks     = 1024  // Maximum block hashes to keep in the known list (prevent DOS)
+	maxKnownTxFrags    = 32768 // Maximum transaction fragments hashes to keep in the known list (prevent DOS)
+	maxKnownBlockFrags = 1024  // Maximum block fragments hashes to keep in the known list (prevent DOS)
 	// maxQueuedTxs is the maximum number of transaction lists to queue up before
 	// dropping broadcasts. This is a sensitive number as a transaction list might
 	// contain a single transaction, or thousands.
@@ -86,12 +87,16 @@ type peer struct {
 	td   *big.Int
 	lock sync.RWMutex
 
-	knownTxs    mapset.Set                // Set of transaction hashes known to be known by this peer
-	knownBlocks mapset.Set                // Set of block hashes known to be known by this peer
-	queuedTxs   chan []*types.Transaction // Queue of transactions to broadcast to the peer
-	queuedProps chan *propEvent           // Queue of blocks to broadcast to the peer
-	queuedAnns  chan *types.Block         // Queue of blocks to announce to the peer
-	term        chan struct{}             // Termination channel to stop the broadcaster
+	knownTxs         mapset.Set                // Set of transaction hashes known to be known by this peer
+	knownBlocks      mapset.Set                // Set of block hashes known to be known by this peer
+	knownTxFrags     mapset.Set                //Set of block hashes known to be known by this pee
+	knownBlockFrags  mapset.Set                //Set of block hashes known to be known by this pee
+	queuedTxs        chan []*types.Transaction // Queue of transactions to broadcast to the peer
+	queuedProps      chan *propEvent           // Queue of blocks to broadcast to the peer
+	queuedAnns       chan *types.Block         // Queue of blocks to announce to the peer
+	queuedTxFrags    chan []*types.Fragment
+	queuedBlockFrags chan []*types.Fragment
+	term             chan struct{} // Termination channel to stop the broadcaster
 }
 
 func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
@@ -132,6 +137,18 @@ func (p *peer) broadcast() {
 				return
 			}
 			p.Log().Trace("Announced block", "number", block.Number(), "hash", block.Hash())
+
+		case frags := <-p.queuedTxFrags:
+			if err := p.SendTxFragments(frags); err != nil {
+				return
+			}
+			p.Log().Trace("Propagated Transaction Fragments", "count", len(frags))
+
+		case frags := <-p.queuedBlockFrags:
+			if err := p.SendBlockFragments(frags); err != nil {
+				return
+			}
+			p.Log().Trace("Propagated Block Fragments", "count", len(frags))
 
 		case <-p.term:
 			return
@@ -207,6 +224,26 @@ func (p *peer) SendTransactions(txs types.Transactions) error {
 	return p2p.Send(p.rw, TxMsg, txs)
 }
 
+func (p *peer) SendTxFragments(frags types.Fragments) error {
+	for _, frag := range frags {
+		p.knownFrags.Add(frag.Hash())
+	}
+	for p.knownFrags.Cardinality() >= maxKnownTxFrags {
+		p.knownFrags.Pop()
+	}
+	return p2p.Send(p.rw, TxFragMsg, frags)
+}
+
+func (p *peer) SendBlockFragments(frags types.Fragments) error {
+	for _, frag := range frags {
+		p.knownFrags.Add(frag.Hash())
+	}
+	for p.knownFrags.Cardinality() >= maxKnownBlockFrags {
+		p.knownFrags.Pop()
+	}
+	return p2p.Send(p.rw, BlockFragMsg, frags)
+}
+
 // AsyncSendTransactions queues list of transactions propagation to a remote
 // peer. If the peer's broadcast queue is full, the event is silently dropped.
 func (p *peer) AsyncSendTransactions(txs []*types.Transaction) {
@@ -221,6 +258,36 @@ func (p *peer) AsyncSendTransactions(txs []*types.Transaction) {
 		}
 	default:
 		p.Log().Debug("Dropping transaction propagation", "count", len(txs))
+	}
+}
+
+func (p *peer) AsyncSendTxFrags(frags []*types.Fragment) {
+	select {
+	case p.queuedTxFrags <- frags:
+		// Mark all the transactions as known, but ensure we don't overflow our limits
+		for _, frag := range frags {
+			p.knownTxFrags.Add(frag.Hash())
+		}
+		for p.knownTxFrags.Cardinality() >= maxKnownTxFrags {
+			p.knownTxFrags.Pop()
+		}
+	default:
+		p.Log().Debug("Dropping transaction fragments propagation", "count", len(frags))
+	}
+}
+
+func (p *peer) AsyncSendBlockFrags(frags []*types.Fragment) {
+	select {
+	case p.queuedBlockFrags <- frags:
+		// Mark all the transactions as known, but ensure we don't overflow our limits
+		for _, frag := range frags {
+			p.knownTxFrags.Add(frag.Hash())
+		}
+		for p.knownTxFrags.Cardinality() >= maxKnownTxFrags {
+			p.knownTxFrags.Pop()
+		}
+	default:
+		p.Log().Debug("Dropping block fragments propagation", "count", len(frags))
 	}
 }
 
@@ -572,6 +639,32 @@ func (ps *peerSet) PeersWithoutTx(hash common.Hash) []*peer {
 	list := make([]*peer, 0, len(ps.peers))
 	for _, p := range ps.peers {
 		if !p.knownTxs.Contains(hash) {
+			list = append(list, p)
+		}
+	}
+	return list
+}
+
+func (ps *peerSet) PeersWithoutTxFrag(hash common.Hash) []*peer {
+	ps.lock.RLock()
+	defer ps.lock.RUnlock()
+
+	list := make([]*peer, 0, len(ps.peers))
+	for _, p := range ps.peers {
+		if !p.knownTxFrags.Contains(hash) {
+			list = append(list, p)
+		}
+	}
+	return list
+}
+
+func (ps *peerSet) PeersWithoutBlockFrag(hash common.Hash) []*peer {
+	ps.lock.RLock()
+	defer ps.lock.RUnlock()
+
+	list := make([]*peer, 0, len(ps.peers))
+	for _, p := range ps.peers {
+		if !p.knownBlockFrags.Contains(hash) {
 			list = append(list, p)
 		}
 	}
