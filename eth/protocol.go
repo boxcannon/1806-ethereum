@@ -61,7 +61,8 @@ const (
 	GetReceiptsMsg     = 0x0f
 	ReceiptsMsg        = 0x10
 	TxFragMsg          = 0x11
-	BlockFragMsg       = 0x12
+	GetBlockFragMsg    = 0x12
+	BlockFragMsg       = 0x13
 )
 
 type errCode int
