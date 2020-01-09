@@ -258,9 +258,6 @@ func (tx *Transaction) RawSignatureValues() (v, r, s *big.Int) {
 	return tx.data.V, tx.data.R, tx.data.S
 }
 
-// Fragments is a Fragment slice type for basic sorting
-type Fragments []*Fragment
-
 // Transactions is a Transaction slice type for basic sorting.
 type Transactions []*Transaction
 

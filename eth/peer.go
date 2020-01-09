@@ -19,6 +19,7 @@ package eth
 import (
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/eth/reedsolomon"
 	"math/big"
 	"sync"
 	"time"
@@ -94,8 +95,8 @@ type peer struct {
 	queuedTxs        chan []*types.Transaction // Queue of transactions to broadcast to the peer
 	queuedProps      chan *propEvent           // Queue of blocks to broadcast to the peer
 	queuedAnns       chan *types.Block         // Queue of blocks to announce to the peer
-	queuedTxFrags    chan []*types.Fragment
-	queuedBlockFrags chan []*types.Fragment
+	queuedTxFrags    chan []*reedsolomon.Fragment
+	queuedBlockFrags chan []*reedsolomon.Fragment
 	term             chan struct{} // Termination channel to stop the broadcaster
 }
 
@@ -224,7 +225,7 @@ func (p *peer) SendTransactions(txs types.Transactions) error {
 	return p2p.Send(p.rw, TxMsg, txs)
 }
 
-func (p *peer) SendTxFragments(frags types.Fragments) error {
+func (p *peer) SendTxFragments(frags reedsolomon.Fragments) error {
 	for _, frag := range frags {
 		p.knownFrags.Add(frag.Hash())
 	}
@@ -234,7 +235,7 @@ func (p *peer) SendTxFragments(frags types.Fragments) error {
 	return p2p.Send(p.rw, TxFragMsg, frags)
 }
 
-func (p *peer) SendBlockFragments(frags types.Fragments) error {
+func (p *peer) SendBlockFragments(frags reedsolomon.Fragments) error {
 	for _, frag := range frags {
 		p.knownFrags.Add(frag.Hash())
 	}
@@ -261,7 +262,7 @@ func (p *peer) AsyncSendTransactions(txs []*types.Transaction) {
 	}
 }
 
-func (p *peer) AsyncSendTxFrags(frags []*types.Fragment) {
+func (p *peer) AsyncSendTxFrags(frags []reedsolomon.Fragment) {
 	select {
 	case p.queuedTxFrags <- frags:
 		// Mark all the transactions as known, but ensure we don't overflow our limits
@@ -276,7 +277,7 @@ func (p *peer) AsyncSendTxFrags(frags []*types.Fragment) {
 	}
 }
 
-func (p *peer) AsyncSendBlockFrags(frags []*types.Fragment) {
+func (p *peer) AsyncSendBlockFrags(frags []reedsolomon.Fragment) {
 	select {
 	case p.queuedBlockFrags <- frags:
 		// Mark all the transactions as known, but ensure we don't overflow our limits

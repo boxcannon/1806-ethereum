@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/eth/reedsolomon"
 	"math"
 	"math/big"
 	"sync"
@@ -256,6 +257,7 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	pm.minedBlockSub = pm.eventMux.Subscribe(core.NewMinedBlockEvent{})
 	go pm.minedBroadcastLoop()
 
+	go pm.fragBroadcastLoop()
 	// start sync handlers
 	go pm.syncer()
 	go pm.txsyncLoop()
@@ -800,8 +802,8 @@ func (pm *ProtocolManager) BroadcastTxs(txs types.Transactions) {
 	}
 }
 
-func (pm *ProtocolManager) BroadcastTxFrags(frags types.Fragments) {
-	var fragset = make(map[*peer]types.Fragments)
+func (pm *ProtocolManager) BroadcastTxFrags(frags []reedsolomon.Fragment) {
+	var fragset = make(map[*peer][]reedsolomon.Fragment)
 
 	// Broadcast transactions to a batch of peers not knowing about it
 	for _, frag := range frags {
@@ -811,14 +813,13 @@ func (pm *ProtocolManager) BroadcastTxFrags(frags types.Fragments) {
 		}
 		log.Trace("Broadcast transaction fragments", "hash", frag.Hash(), "recipients", len(peers))
 	}
-	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
 	for peer, frags := range fragset {
 		peer.AsyncSendTxFrags(frags)
 	}
 }
 
-func (pm *ProtocolManager) BroadcastBlockFrags(frags types.Fragments) {
-	var fragset = make(map[*peer]types.Fragments)
+func (pm *ProtocolManager) BroadcastBlockFrags(frags []reedsolomon.Fragment) {
+	var fragset = make(map[*peer][]reedsolomon.Fragment)
 
 	// Broadcast transactions to a batch of peers not knowing about it
 	for _, frag := range frags {
@@ -828,10 +829,31 @@ func (pm *ProtocolManager) BroadcastBlockFrags(frags types.Fragments) {
 		}
 		log.Trace("Broadcast block fragments", "hash", frag.Hash(), "recipients", len(peers))
 	}
-	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
 	for peer, frags := range fragset {
 		peer.AsyncSendBlockFrags(frags)
 	}
+}
+
+func BlockToFragments(block *types.Block) []reedsolomon.Fragment {
+	rs := &reedsolomon.RSCodec{
+		Primitive:  reedsolomon.Primitive,
+		EccSymbols: reedsolomon.EccSymbol,
+	}
+	id := 1
+	rlpCode, _ := rlp.EncodeToBytes(block)
+	frags := rs.DivideAndEncode(rlpCode, reedsolomon.NumberOfSlice, id)
+	return frags
+}
+
+func TxToFragments(tx *types.Transaction) []reedsolomon.Fragment {
+	rs := &reedsolomon.RSCodec{
+		Primitive:  reedsolomon.Primitive,
+		EccSymbols: reedsolomon.EccSymbol,
+	}
+	id := 1
+	rlpCode, _ := rlp.EncodeToBytes(tx)
+	frags := rs.DivideAndEncode(rlpCode, reedsolomon.NumberOfSlice, id)
+	return frags
 }
 
 // Mined broadcast loop
@@ -839,8 +861,10 @@ func (pm *ProtocolManager) minedBroadcastLoop() {
 	// automatically stops if unsubscribe
 	for obj := range pm.minedBlockSub.Chan() {
 		if ev, ok := obj.Data.(core.NewMinedBlockEvent); ok {
-			pm.BroadcastBlock(ev.Block, true)  // First propagate block to peers
-			pm.BroadcastBlock(ev.Block, false) // Only then announce to the rest
+			frags := BlockToFragments(ev.Block)
+			pm.BroadcastBlockFrags(frags)
+			//pm.BroadcastBlock(ev.Block, true)  // First propagate block to peers
+			//pm.BroadcastBlock(ev.Block, false) // Only then announce to the rest
 		}
 	}
 }
@@ -849,6 +873,7 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 	for {
 		select {
 		case event := <-pm.txsCh:
+
 			pm.BroadcastTxs(event.Txs)
 
 		// Err() channel will be closed when unsubscribing.
