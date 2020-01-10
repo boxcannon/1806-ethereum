@@ -834,23 +834,23 @@ func (pm *ProtocolManager) BroadcastBlockFrags(frags []reedsolomon.Fragment) {
 	}
 }
 
-func BlockToFragments(block *types.Block) []reedsolomon.Fragment {
+func (pm *ProtocolManager) BlockToFragments(block *types.Block) []reedsolomon.Fragment {
 	rs := &reedsolomon.RSCodec{
 		Primitive:  reedsolomon.Primitive,
 		EccSymbols: reedsolomon.EccSymbol,
 	}
-	id := 1
+	id := block.Hash()
 	rlpCode, _ := rlp.EncodeToBytes(block)
 	frags := rs.DivideAndEncode(rlpCode, reedsolomon.NumberOfSlice, id)
 	return frags
 }
 
-func TxToFragments(tx *types.Transaction) []reedsolomon.Fragment {
+func (pm *ProtocolManager) TxToFragments(tx *types.Transaction) []reedsolomon.Fragment {
 	rs := &reedsolomon.RSCodec{
 		Primitive:  reedsolomon.Primitive,
 		EccSymbols: reedsolomon.EccSymbol,
 	}
-	id := 1
+	id := tx.Hash()
 	rlpCode, _ := rlp.EncodeToBytes(tx)
 	frags := rs.DivideAndEncode(rlpCode, reedsolomon.NumberOfSlice, id)
 	return frags
@@ -861,7 +861,7 @@ func (pm *ProtocolManager) minedBroadcastLoop() {
 	// automatically stops if unsubscribe
 	for obj := range pm.minedBlockSub.Chan() {
 		if ev, ok := obj.Data.(core.NewMinedBlockEvent); ok {
-			frags := BlockToFragments(ev.Block)
+			frags := pm.BlockToFragments(ev.Block)
 			pm.BroadcastBlockFrags(frags)
 			//pm.BroadcastBlock(ev.Block, true)  // First propagate block to peers
 			//pm.BroadcastBlock(ev.Block, false) // Only then announce to the rest
@@ -873,8 +873,11 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 	for {
 		select {
 		case event := <-pm.txsCh:
-
-			pm.BroadcastTxs(event.Txs)
+			for _, tx := range event.Txs {
+				frags := pm.TxToFragments(tx)
+				pm.BroadcastTxFrags(frags)
+			}
+			//pm.BroadcastTxs(event.Txs)
 
 		// Err() channel will be closed when unsubscribing.
 		case <-pm.txsSub.Err():

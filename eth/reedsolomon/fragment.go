@@ -9,7 +9,7 @@ import (
 // Fragment of Block or Transactions
 type Fragment struct {
 	code        []byte
-	fingerprint int
+	fingerprint common.Hash
 	pos         int
 	n           int
 }

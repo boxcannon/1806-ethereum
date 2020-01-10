@@ -1,6 +1,8 @@
 package reedsolomon
 
-func (r *RSCodec) DivideAndEncode(bytedata []byte, n int, id int) []Fragment {
+import "github.com/ethereum/go-ethereum/common"
+
+func (r *RSCodec) DivideAndEncode(bytedata []byte, n int, id common.Hash) []Fragment {
 	data := string(bytedata[:])
 	lenData := len(data)
 	rmd, m := lenData%n, lenData/n
