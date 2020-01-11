@@ -88,15 +88,15 @@ type peer struct {
 	td   *big.Int
 	lock sync.RWMutex
 
-	knownTxs    mapset.Set                // Set of transaction hashes known to be known by this peer
-	knownBlocks mapset.Set                // Set of block hashes known to be known by this peer
-	knownFrags	mapset.Set                // Set of frag hashes known to be known by this peer
-	queuedTxs   chan []*types.Transaction // Queue of transactions to broadcast to the peer
-	queuedProps chan *propEvent           // Queue of blocks to broadcast to the peer
-	queuedAnns  chan *types.Block         // Queue of blocks to announce to the peer
-	queuedBlockFrags chan []*reedsolomon.Fragment
-	queuedTxFrags chan []*reedsolomon.Fragment
-	term        chan struct{} // Termination channel to stop the broadcaster
+	knownTxs         mapset.Set                // Set of transaction hashes known to be known by this peer
+	knownBlocks      mapset.Set                // Set of block hashes known to be known by this peer
+	knownFrags       mapset.Set                // Set of frag hashes known to be known by this peer
+	queuedTxs        chan []*types.Transaction // Queue of transactions to broadcast to the peer
+	queuedProps      chan *propEvent           // Queue of blocks to broadcast to the peer
+	queuedAnns       chan *types.Block         // Queue of blocks to announce to the peer
+	queuedTxFrags    chan reedsolomon.Fragments
+	queuedBlockFrags chan reedsolomon.Fragments
+	term             chan struct{} // Termination channel to stop the broadcaster
 }
 
 func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
@@ -142,13 +142,13 @@ func (p *peer) broadcast() {
 			if err := p.SendTxFragments(frags); err != nil {
 				return
 			}
-			p.Log().Trace("Propagated Transaction Fragments", "count", len(frags))
+			p.Log().Trace("Propagated Transaction Fragments", "count", len(frags.Fragments))
 
 		case frags := <-p.queuedBlockFrags:
 			if err := p.SendBlockFragments(frags); err != nil {
 				return
 			}
-			p.Log().Trace("Propagated Block Fragments", "count", len(frags))
+			p.Log().Trace("Propagated Block Fragments", "count", len(frags.Fragments))
 
 		case <-p.term:
 			return
@@ -224,22 +224,6 @@ func (p *peer) SendTransactions(txs types.Transactions) error {
 	return p2p.Send(p.rw, TxMsg, txs)
 }
 
-func (p *peer) MarkBlockFragments(hash common.Hash) {
-	// If we reached the memory allowance, drop a previously known transaction hash
-	for p.knownFrags.Cardinality() >= maxKnownTxs {
-		p.knownFrags.Pop()
-	}
-	p.knownFrags.Add(hash)
-}
-
-func (p *peer) MarkTxFragments(hash common.Hash) {
-	// If we reached the memory allowance, drop a previously known transaction hash
-	for p.knownFrags.Cardinality() >= maxKnownTxs {
-		p.knownFrags.Pop()
-	}
-	p.knownTxs.Add(hash)
-}
-
 func (p *peer) SendTxFragments(frags reedsolomon.Fragments) error {
 	for _, frag := range frags.Fragments {
 		p.knownFrags.Add(frag.Hash())
@@ -277,11 +261,11 @@ func (p *peer) AsyncSendTransactions(txs []*types.Transaction) {
 	}
 }
 
-func (p *peer) AsyncSendTxFrags(frags []reedsolomon.Fragment) {
+func (p *peer) AsyncSendTxFrags(frags reedsolomon.Fragments) {
 	select {
-	case p.queuedBlockFrags <- frags:
+	case p.queuedTxFrags <- frags:
 		// Mark all the transactions as known, but ensure we don't overflow our limits
-		for _, frag := range frags {
+		for _, frag := range frags.Fragments {
 			p.knownFrags.Add(frag.Hash())
 		}
 		for p.knownFrags.Cardinality() >= maxKnownTxFrags {
@@ -292,11 +276,11 @@ func (p *peer) AsyncSendTxFrags(frags []reedsolomon.Fragment) {
 	}
 }
 
-func (p *peer) AsyncSendBlockFrags(frags []reedsolomon.Fragment) {
+func (p *peer) AsyncSendBlockFrags(frags reedsolomon.Fragments) {
 	select {
 	case p.queuedBlockFrags <- frags:
 		// Mark all the transactions as known, but ensure we don't overflow our limits
-		for _, frag := range frags {
+		for _, frag := range frags.Fragments {
 			p.knownFrags.Add(frag.Hash())
 		}
 		for p.knownFrags.Cardinality() >= maxKnownTxFrags {
@@ -667,7 +651,7 @@ func (ps *peerSet) PeersWithoutTxFrag(hash common.Hash) []*peer {
 
 	list := make([]*peer, 0, len(ps.peers))
 	for _, p := range ps.peers {
-		if !p.knownTxFrags.Contains(hash) {
+		if !p.knownFrags.Contains(hash) {
 			list = append(list, p)
 		}
 	}
@@ -680,7 +664,7 @@ func (ps *peerSet) PeersWithoutBlockFrag(hash common.Hash) []*peer {
 
 	list := make([]*peer, 0, len(ps.peers))
 	for _, p := range ps.peers {
-		if !p.knownBlockFrags.Contains(hash) {
+		if !p.knownFrags.Contains(hash) {
 			list = append(list, p)
 		}
 	}

@@ -396,26 +396,23 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			break
 		}
 		// Transactions can be processed, parse all of them and deliver to the pool
-		var frags reedsolomon.Fragments
-		var cnt uint16
+		var frags []*reedsolomon.Fragment
 		if err := msg.Decode(&frags); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
-		for _, frag := range frags.Fragments {
+		for i, frag := range frags {
 			// Validate and mark the remote transaction
-			p.MarkTransaction(frag.Hash())
-			cnt = pm.fragpool.Insert(frag, frags.ID)
-		}
-		if cnt >= minFragNum{
-			res, flag := pm.fragpool.TryDecode(frags.ID)
-			// flag=1 means decode success
-			if flag == 1{
-
+			if frag == nil {
+				return errResp(ErrDecode, "transaction %d is nil", i)
 			}
+			p.MarkTransaction(frag.Hash())
+			cnt := pm.fragpool.Insert(frag)
+		}
+		if cnt >= MiniFragNum{
+
 		}
 
 	case msg.Code == BlockFragMsg:
-
 
 	// Block header query, collect the requested headers and reply
 	case msg.Code == GetBlockHeadersMsg:
@@ -835,27 +832,27 @@ func (pm *ProtocolManager) BroadcastTxs(txs types.Transactions) {
 	}
 }
 
-func (pm *ProtocolManager) BroadcastTxFrags(frags []reedsolomon.Fragment) {
+func (pm *ProtocolManager) BroadcastTxFrags(frags reedsolomon.Fragments) {
 	var fragset = make(map[*peer][]reedsolomon.Fragment)
 
 	// Broadcast transactions to a batch of peers not knowing about it
-	for _, frag := range frags {
+	for _, frag := range frags.Fragments {
 		peers := pm.peers.PeersWithoutTxFrag(frag.Hash())
 		for _, peer := range peers {
 			fragset[peer] = append(fragset[peer], frag)
 		}
-		log.Trace("Broadcast transaction fragments", "hash", frag.Hash(), "recipients", len(peers))
+		log.Trace("Broadcast block fragments", "hash", frag.Hash(), "recipients", len(peers))
 	}
 	for peer, frags := range fragset {
-		peer.AsyncSendTxFrags(frags)
+		peer.AsyncSendBlockFrags(frags)
 	}
 }
 
-func (pm *ProtocolManager) BroadcastBlockFrags(frags []reedsolomon.Fragment) {
+func (pm *ProtocolManager) BroadcastBlockFrags(frags reedsolomon.Fragments) {
 	var fragset = make(map[*peer][]reedsolomon.Fragment)
 
-	// Broadcast transactions to a batch of peers not knowing about it
-	for _, frag := range frags {
+	// Broadcast Block to a batch of peers not knowing about it
+	for _, frag := range frags.Fragments {
 		peers := pm.peers.PeersWithoutBlockFrag(frag.Hash())
 		for _, peer := range peers {
 			fragset[peer] = append(fragset[peer], frag)
@@ -874,8 +871,8 @@ func (pm *ProtocolManager) BlockToFragments(block *types.Block) reedsolomon.Frag
 	}
 	id := block.Hash()
 	rlpCode, _ := rlp.EncodeToBytes(block)
-	frags := rs.DivideAndEncode(rlpCode, id)
-	return frags
+	frags := rs.DivideAndEncode(rlpCode)
+	return return reedsolomon.Fragments{Fragments: frags, ID: id}
 }
 
 func (pm *ProtocolManager) TxToFragments(tx *types.Transaction) reedsolomon.Fragments {
@@ -885,8 +882,8 @@ func (pm *ProtocolManager) TxToFragments(tx *types.Transaction) reedsolomon.Frag
 	}
 	id := tx.Hash()
 	rlpCode, _ := rlp.EncodeToBytes(tx)
-	frags := rs.DivideAndEncode(rlpCode, id)
-	return frags
+	frags := rs.DivideAndEncode(rlpCode)
+	return reedsolomon.Fragments{Fragments: frags, ID: id}
 }
 
 // Mined broadcast loop

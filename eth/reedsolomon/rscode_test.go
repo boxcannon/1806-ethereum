@@ -29,10 +29,14 @@ func TestRSCodec_DivideAndEncode(t *testing.T) {
 	txrlp, _ := rlp.EncodeToBytes(tx)
 	//txrlp := []byte("hello world")
 	fmt.Println(txrlp)
-	a := rs.DivideAndEncode(txrlp, tx.Hash())
-	for _, line := range a.Fragments {
-		fmt.Println(line)
-	}
-	b, _ := rs.SpliceAndDecode(a.Fragments)
+	a := rs.DivideAndEncode(txrlp)
+	//for _, line := range a {
+	//	fmt.Println(line)
+	//}
+	b, _ := rs.SpliceAndDecode(a)
+	var tx_decoded types.Transaction
+	rlp.DecodeBytes(b, &tx_decoded)
 	fmt.Println(b)
+	fmt.Println(tx_decoded)
+	fmt.Println(*tx)
 }
