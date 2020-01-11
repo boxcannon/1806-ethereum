@@ -272,7 +272,7 @@ func (p *peer) AsyncSendTxFrags(frags reedsolomon.Fragments) {
 			p.knownFrags.Pop()
 		}
 	default:
-		p.Log().Debug("Dropping transaction fragments propagation", "count", len(frags))
+		p.Log().Debug("Dropping transaction fragments propagation", "count", len(frags.Fragments))
 	}
 }
 
@@ -287,7 +287,7 @@ func (p *peer) AsyncSendBlockFrags(frags reedsolomon.Fragments) {
 			p.knownFrags.Pop()
 		}
 	default:
-		p.Log().Debug("Dropping block fragments propagation", "count", len(frags))
+		p.Log().Debug("Dropping block fragments propagation", "count", len(frags.Fragments))
 	}
 }
 
