@@ -396,23 +396,75 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			break
 		}
 		// Transactions can be processed, parse all of them and deliver to the pool
-		var frags []*reedsolomon.Fragment
+		var frags reedsolomon.Fragments
+		var cnt uint16
 		if err := msg.Decode(&frags); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
-		for i, frag := range frags {
+		for _, frag := range frags.Fragments {
 			// Validate and mark the remote transaction
-			if frag == nil {
-				return errResp(ErrDecode, "transaction %d is nil", i)
-			}
-			p.MarkTransaction(frag.Hash())
-			cnt := pm.fragpool.Insert(frag)
+			p.MarkTransaction(frags.ID)
+			cnt = pm.fragpool.Insert(frag, frags.ID)
 		}
-		if cnt >= MiniFragNum{
-
+		if cnt >= minFragNum{
+			res, flag := pm.fragpool.TryDecode(frags.ID, minFragNum)
+			// flag=1 means decode success
+			if flag == 1{
+				s := rlp.NewStream(res, uint64(msg.Size))
+				var txs []*types.Transaction
+				if err := res.TryDecode(&txs); err != nil {
+					return errResp(ErrDecode, "msg %v: %v", msg, err)
+				}
+				for i, tx := range txs {
+					// Validate and mark the remote transaction
+					if tx == nil {
+						return errResp(ErrDecode, "transaction %d is nil", i)
+					}
+					p.MarkTransaction(tx.Hash())
+				}
+				pm.txpool.AddRemotes(txs)
+			}
 		}
 
 	case msg.Code == BlockFragMsg:
+		var frags reedsolomon.Fragments
+		var cnt uint16
+		if err := msg.Decode(&frags); err != nil {
+			return errResp(ErrDecode, "msg %v: %v", msg, err)
+		}
+		for _, frag := range frags.Fragments {
+			// Validate and mark the remote transaction
+			p.MarkTransaction(frags.ID)
+			cnt = pm.fragpool.Insert(frag, frags.ID)
+		}
+		if cnt >= minFragNum{
+			res, flag := pm.fragpool.TryDecode(frags.ID, minFragNum)
+			// flag=1 means decode success
+			if flag == 1{
+				pm.txpool.AddRemotes(res)
+			}
+		}
+
+		var request blockBodiesData
+		// Deliver them all to the downloader for queuing
+		transactions := make([][]*types.Transaction, len(request))
+		uncles := make([][]*types.Header, len(request))
+
+		for i, body := range request {
+			transactions[i] = body.Transactions
+			uncles[i] = body.Uncles
+		}
+		// Filter out any explicitly requested bodies, deliver the rest to the downloader
+		filter := len(transactions) > 0 || len(uncles) > 0
+		if filter {
+			transactions, uncles = pm.fetcher.FilterBodies(p.id, transactions, uncles, time.Now())
+		}
+		if len(transactions) > 0 || len(uncles) > 0 || !filter {
+			err := pm.downloader.DeliverBodies(p.id, transactions, uncles)
+			if err != nil {
+				log.Debug("Failed to deliver bodies", "err", err)
+			}
+		}
 
 	// Block header query, collect the requested headers and reply
 	case msg.Code == GetBlockHeadersMsg:
@@ -864,25 +916,25 @@ func (pm *ProtocolManager) BroadcastBlockFrags(frags []reedsolomon.Fragment) {
 	}
 }
 
-func (pm *ProtocolManager) BlockToFragments(block *types.Block) []reedsolomon.Fragment {
+func (pm *ProtocolManager) BlockToFragments(block *types.Block) reedsolomon.Fragments {
 	rs := &reedsolomon.RSCodec{
 		Primitive:  reedsolomon.Primitive,
 		EccSymbols: reedsolomon.EccSymbol,
 	}
 	id := block.Hash()
 	rlpCode, _ := rlp.EncodeToBytes(block)
-	frags := rs.DivideAndEncode(rlpCode, reedsolomon.NumberOfSlice, id)
+	frags := rs.DivideAndEncode(rlpCode, id)
 	return frags
 }
 
-func (pm *ProtocolManager) TxToFragments(tx *types.Transaction) []reedsolomon.Fragment {
+func (pm *ProtocolManager) TxToFragments(tx *types.Transaction) reedsolomon.Fragments {
 	rs := &reedsolomon.RSCodec{
 		Primitive:  reedsolomon.Primitive,
 		EccSymbols: reedsolomon.EccSymbol,
 	}
 	id := tx.Hash()
 	rlpCode, _ := rlp.EncodeToBytes(tx)
-	frags := rs.DivideAndEncode(rlpCode, reedsolomon.NumberOfSlice, id)
+	frags := rs.DivideAndEncode(rlpCode, id)
 	return frags
 }
 
