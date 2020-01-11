@@ -396,20 +396,22 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			break
 		}
 		// Transactions can be processed, parse all of them and deliver to the pool
-		var frags []*reedsolomon.Fragment
+		var frags reedsolomon.Fragments
+		var cnt uint16
 		if err := msg.Decode(&frags); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
-		for i, frag := range frags {
+		for _, frag := range frags.Fragments {
 			// Validate and mark the remote transaction
-			if frag == nil {
-				return errResp(ErrDecode, "transaction %d is nil", i)
-			}
 			p.MarkTransaction(frag.Hash())
-			cnt := pm.fragpool.Insert(frag)
+			cnt = pm.fragpool.Insert(frag, frags.ID)
 		}
-		if cnt >= MiniFragNum{
+		if cnt >= minFragNum{
+			res, flag := pm.fragpool.TryDecode(frags.ID)
+			// flag=1 means decode success
+			if flag == 1{
 
+			}
 		}
 
 	case msg.Code == BlockFragMsg:
