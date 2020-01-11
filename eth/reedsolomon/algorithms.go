@@ -29,6 +29,12 @@ import (
 //	return subs
 //}
 
+const (
+	Primitive     = 0x11d
+	NumberOfSlice = 40
+	EccSymbol     = 160
+)
+
 func IntToBytes(n int) []byte {
 	data := int64(n)
 	bytebuf := bytes.NewBuffer([]byte{})

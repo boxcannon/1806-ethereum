@@ -95,8 +95,8 @@ type peer struct {
 	queuedTxs        chan []*types.Transaction // Queue of transactions to broadcast to the peer
 	queuedProps      chan *propEvent           // Queue of blocks to broadcast to the peer
 	queuedAnns       chan *types.Block         // Queue of blocks to announce to the peer
-	queuedTxFrags    chan []*reedsolomon.Fragment
-	queuedBlockFrags chan []*reedsolomon.Fragment
+	queuedTxFrags    chan reedsolomon.Fragments
+	queuedBlockFrags chan reedsolomon.Fragments
 	term             chan struct{} // Termination channel to stop the broadcaster
 }
 
@@ -143,13 +143,13 @@ func (p *peer) broadcast() {
 			if err := p.SendTxFragments(frags); err != nil {
 				return
 			}
-			p.Log().Trace("Propagated Transaction Fragments", "count", len(frags))
+			p.Log().Trace("Propagated Transaction Fragments", "count", len(frags.Fragments))
 
 		case frags := <-p.queuedBlockFrags:
 			if err := p.SendBlockFragments(frags); err != nil {
 				return
 			}
-			p.Log().Trace("Propagated Block Fragments", "count", len(frags))
+			p.Log().Trace("Propagated Block Fragments", "count", len(frags.Fragments))
 
 		case <-p.term:
 			return
@@ -262,9 +262,9 @@ func (p *peer) AsyncSendTransactions(txs []*types.Transaction) {
 	}
 }
 
-func (p *peer) AsyncSendTxFrags(frags []reedsolomon.Fragment) {
+func (p *peer) AsyncSendTxFrags(frags []reedsolomon.Fragment, id common.Hash) {
 	select {
-	case p.queuedTxFrags <- frags:
+	case p.queuedTxFrags <- reedsolomon.Fragments{Fragments: frags, ID: id}:
 		// Mark all the transactions as known, but ensure we don't overflow our limits
 		for _, frag := range frags {
 			p.knownTxFrags.Add(frag.Hash())
@@ -277,9 +277,9 @@ func (p *peer) AsyncSendTxFrags(frags []reedsolomon.Fragment) {
 	}
 }
 
-func (p *peer) AsyncSendBlockFrags(frags []reedsolomon.Fragment) {
+func (p *peer) AsyncSendBlockFrags(frags []reedsolomon.Fragment, id common.Hash) {
 	select {
-	case p.queuedBlockFrags <- frags:
+	case p.queuedBlockFrags <- reedsolomon.Fragments{Fragments: frags, ID: id}:
 		// Mark all the transactions as known, but ensure we don't overflow our limits
 		for _, frag := range frags {
 			p.knownTxFrags.Add(frag.Hash())

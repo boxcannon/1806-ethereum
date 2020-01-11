@@ -29,9 +29,9 @@ func TestRSCodec_DivideAndEncode(t *testing.T) {
 	//txrlp := []byte("hello world")
 	fmt.Println(txrlp)
 	a := rs.DivideAndEncode(txrlp, 40, tx.Hash())
-	for _, line := range a {
+	for _, line := range a.fragments {
 		fmt.Println(line)
 	}
-	b, _ := rs.SpliceAndDecode(a, 40)
+	b, _ := rs.SpliceAndDecode(a.fragments, 40)
 	fmt.Println(b)
 }

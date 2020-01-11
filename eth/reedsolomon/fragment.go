@@ -8,12 +8,16 @@ import (
 
 // Fragment of Block or Transactions
 type Fragment struct {
-	code        []byte
-	fingerprint common.Hash
-	pos         int
+	code []byte
+	pos  int
 }
 
-func (fragment *Fragment) Hash() common.Hash {
+type Fragments struct {
+	Fragments []Fragment
+	ID        common.Hash
+}
+
+func (fragment Fragment) Hash() common.Hash {
 	v := rlpHash(fragment)
 	return v
 }

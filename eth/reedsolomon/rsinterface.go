@@ -2,7 +2,7 @@ package reedsolomon
 
 import "github.com/ethereum/go-ethereum/common"
 
-func (r *RSCodec) DivideAndEncode(bytedata []byte, n int, id common.Hash) []Fragment {
+func (r *RSCodec) DivideAndEncode(bytedata []byte, n int, id common.Hash) Fragments {
 	bytedata = append(bytedata, 1)
 	lenData := len(bytedata)
 	rmd, m := lenData%n, lenData/n
@@ -16,13 +16,14 @@ func (r *RSCodec) DivideAndEncode(bytedata []byte, n int, id common.Hash) []Frag
 	for i := 0; i < m; i++ {
 		tmp[i] = r.Encode(string(subs[i]))
 	}
-	res := make([]Fragment, n+r.EccSymbols)
+	frags := make([]Fragment, n+r.EccSymbols)
 	for i := 0; i < n+r.EccSymbols; i++ {
-		res[i].fingerprint, res[i].pos, res[i].code = id, i, make([]uint8, m)
+		frags[i].pos, frags[i].code = i, make([]uint8, m)
 		for j := 0; j < m; j++ {
-			res[i].code[j] = uint8(tmp[j][i])
+			frags[i].code[j] = uint8(tmp[j][i])
 		}
 	}
+	res := Fragments{Fragments: frags, id: id}
 	return res
 }
 
