@@ -23,15 +23,16 @@ func TestRSCodec_DivideAndEncode(t *testing.T) {
 	rs := RSCodec{
 		Primitive:  0x11d,
 		EccSymbols: 160,
+		NumSymbols: 40,
 	}
 	rs.InitLookupTables()
 	txrlp, _ := rlp.EncodeToBytes(tx)
 	//txrlp := []byte("hello world")
 	fmt.Println(txrlp)
-	a := rs.DivideAndEncode(txrlp, 40, tx.Hash())
-	for _, line := range a.fragments {
+	a := rs.DivideAndEncode(txrlp, tx.Hash())
+	for _, line := range a.Fragments {
 		fmt.Println(line)
 	}
-	b, _ := rs.SpliceAndDecode(a.fragments, 40)
+	b, _ := rs.SpliceAndDecode(a.Fragments)
 	fmt.Println(b)
 }

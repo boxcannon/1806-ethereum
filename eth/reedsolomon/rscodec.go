@@ -10,6 +10,7 @@ type RSCodec struct {
 	Primitive int
 	// Number of ECC symbols in message
 	EccSymbols int
+	NumSymbols int
 }
 
 var (

@@ -35,6 +35,15 @@ const (
 	EccSymbol     = 160
 )
 
+func IntToUint8(n int) uint8 {
+	tmp := IntToBytes(n)
+	if IsLittleEndian() {
+		return tmp[7]
+	} else {
+		return tmp[0]
+	}
+}
+
 func IntToBytes(n int) []byte {
 	data := int64(n)
 	bytebuf := bytes.NewBuffer([]byte{})

@@ -9,7 +9,7 @@ import (
 // Fragment of Block or Transactions
 type Fragment struct {
 	code []byte
-	pos  int
+	pos  uint8
 }
 
 type Fragments struct {

@@ -2,39 +2,39 @@ package reedsolomon
 
 import "github.com/ethereum/go-ethereum/common"
 
-func (r *RSCodec) DivideAndEncode(bytedata []byte, n int, id common.Hash) Fragments {
+func (r *RSCodec) DivideAndEncode(bytedata []byte, id common.Hash) Fragments {
 	bytedata = append(bytedata, 1)
 	lenData := len(bytedata)
-	rmd, m := lenData%n, lenData/n
+	rmd, m := lenData%r.NumSymbols, lenData/r.NumSymbols
 	if rmd != 0 {
-		tmp := make([]byte, n-rmd)
+		tmp := make([]byte, r.NumSymbols-rmd)
 		bytedata = append(bytedata, tmp...)
 		m++
 	}
-	subs := SplitSubN(bytedata, n)
+	subs := SplitSubN(bytedata, r.NumSymbols)
 	tmp := make([][]int, m)
 	for i := 0; i < m; i++ {
 		tmp[i] = r.Encode(string(subs[i]))
 	}
-	frags := make([]Fragment, n+r.EccSymbols)
-	for i := 0; i < n+r.EccSymbols; i++ {
-		frags[i].pos, frags[i].code = i, make([]uint8, m)
+	frags := make([]Fragment, r.NumSymbols+r.EccSymbols)
+	for i := 0; i < r.NumSymbols+r.EccSymbols; i++ {
+		frags[i].pos, frags[i].code = IntToUint8(i), make([]uint8, m)
 		for j := 0; j < m; j++ {
 			frags[i].code[j] = uint8(tmp[j][i])
 		}
 	}
-	res := Fragments{Fragments: frags, id: id}
+	res := Fragments{Fragments: frags, ID: id}
 	return res
 }
 
-func (r *RSCodec) SpliceAndDecode(dataCode []Fragment, n int) ([]byte, int) {
+func (r *RSCodec) SpliceAndDecode(dataCode []Fragment) ([]byte, int) {
 	dataLen := len(dataCode)
 	m := len(dataCode[0].code)
 	tmp := make([][]int, m)
 	for i := 0; i < m; i++ {
-		tmp[i] = make([]int, n+r.EccSymbols)
+		tmp[i] = make([]int, r.NumSymbols+r.EccSymbols)
 	}
-	flag := make([]int, n+r.EccSymbols)
+	flag := make([]int, r.NumSymbols+r.EccSymbols)
 	for i := 0; i < dataLen; i++ {
 		pos := dataCode[i].pos
 		for j := 0; j < m; j++ {
@@ -43,7 +43,7 @@ func (r *RSCodec) SpliceAndDecode(dataCode []Fragment, n int) ([]byte, int) {
 		flag[pos] = 1
 	}
 	var errPos []int
-	for i := 0; i < n+r.EccSymbols; i++ {
+	for i := 0; i < r.NumSymbols+r.EccSymbols; i++ {
 		if flag[i] == 0 {
 			errPos = append(errPos, i)
 		}
