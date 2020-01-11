@@ -90,8 +90,7 @@ type peer struct {
 
 	knownTxs    mapset.Set                // Set of transaction hashes known to be known by this peer
 	knownBlocks mapset.Set                // Set of block hashes known to be known by this peer
-	knownTxFrags	mapset.Set                // Set of frag hashes known to be known by this peer
-	knownBlockFrags	mapset.Set                // Set of frag hashes known to be known by this peer
+	knownFrags	mapset.Set                // Set of frag hashes known to be known by this peer
 	queuedTxs   chan []*types.Transaction // Queue of transactions to broadcast to the peer
 	queuedProps chan *propEvent           // Queue of blocks to broadcast to the peer
 	queuedAnns  chan *types.Block         // Queue of blocks to announce to the peer
@@ -227,36 +226,36 @@ func (p *peer) SendTransactions(txs types.Transactions) error {
 
 func (p *peer) MarkBlockFragments(hash common.Hash) {
 	// If we reached the memory allowance, drop a previously known transaction hash
-	for p.knownBlockFrags.Cardinality() >= maxKnownTxs {
-		p.knownBlockFrags.Pop()
+	for p.knownFrags.Cardinality() >= maxKnownTxs {
+		p.knownFrags.Pop()
 	}
-	p.knownBlockFrags.Add(hash)
+	p.knownFrags.Add(hash)
 }
 
 func (p *peer) MarkTxFragments(hash common.Hash) {
 	// If we reached the memory allowance, drop a previously known transaction hash
-	for p.knownTxFrags.Cardinality() >= maxKnownTxs {
-		p.knownTxFrags.Pop()
+	for p.knownFrags.Cardinality() >= maxKnownTxs {
+		p.knownFrags.Pop()
 	}
 	p.knownTxs.Add(hash)
 }
 
 func (p *peer) SendTxFragments(frags reedsolomon.Fragments) error {
 	for _, frag := range frags.Fragments {
-		p.knownTxFrags.Add(frag.Hash())
+		p.knownFrags.Add(frag.Hash())
 	}
-	for p.knownTxFrags.Cardinality() >= maxKnownTxFrags {
-		p.knownTxFrags.Pop()
+	for p.knownFrags.Cardinality() >= maxKnownTxFrags {
+		p.knownFrags.Pop()
 	}
 	return p2p.Send(p.rw, TxFragMsg, frags)
 }
 
 func (p *peer) SendBlockFragments(frags reedsolomon.Fragments) error {
 	for _, frag := range frags.Fragments {
-		p.knownBlockFrags.Add(frag.Hash())
+		p.knownFrags.Add(frag.Hash())
 	}
-	for p.knownBlockFrags.Cardinality() >= maxKnownBlockFrags {
-		p.knownBlockFrags.Pop()
+	for p.knownFrags.Cardinality() >= maxKnownBlockFrags {
+		p.knownFrags.Pop()
 	}
 	return p2p.Send(p.rw, BlockFragMsg, frags)
 }
@@ -283,10 +282,10 @@ func (p *peer) AsyncSendTxFrags(frags []reedsolomon.Fragment) {
 	case p.queuedBlockFrags <- frags:
 		// Mark all the transactions as known, but ensure we don't overflow our limits
 		for _, frag := range frags {
-			p.knownTxFrags.Add(frag.Hash())
+			p.knownFrags.Add(frag.Hash())
 		}
-		for p.knownTxFrags.Cardinality() >= maxKnownTxFrags {
-			p.knownTxFrags.Pop()
+		for p.knownFrags.Cardinality() >= maxKnownTxFrags {
+			p.knownFrags.Pop()
 		}
 	default:
 		p.Log().Debug("Dropping transaction fragments propagation", "count", len(frags))
@@ -298,10 +297,10 @@ func (p *peer) AsyncSendBlockFrags(frags []reedsolomon.Fragment) {
 	case p.queuedBlockFrags <- frags:
 		// Mark all the transactions as known, but ensure we don't overflow our limits
 		for _, frag := range frags {
-			p.knownTxFrags.Add(frag.Hash())
+			p.knownFrags.Add(frag.Hash())
 		}
-		for p.knownTxFrags.Cardinality() >= maxKnownTxFrags {
-			p.knownTxFrags.Pop()
+		for p.knownFrags.Cardinality() >= maxKnownTxFrags {
+			p.knownFrags.Pop()
 		}
 	default:
 		p.Log().Debug("Dropping block fragments propagation", "count", len(frags))
