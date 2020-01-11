@@ -408,7 +408,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			p.MarkTransaction(frag.Hash())
 			cnt := pm.fragpool.Insert(frag)
 		}
-		if cnt >= MiniFragNum {
+		if cnt >= MiniFragNum{
 
 		}
 
@@ -864,15 +864,15 @@ func (pm *ProtocolManager) BroadcastBlockFrags(frags reedsolomon.Fragments) {
 	}
 }
 
-func (pm *ProtocolManager) BlockToFragments(tx *types.Block) reedsolomon.Fragments {
+func (pm *ProtocolManager) BlockToFragments(block *types.Block) reedsolomon.Fragments {
 	rs := &reedsolomon.RSCodec{
 		Primitive:  reedsolomon.Primitive,
 		EccSymbols: reedsolomon.EccSymbol,
 	}
-	id := tx.Hash()
-	rlpCode, _ := rlp.EncodeToBytes(tx)
+	id := block.Hash()
+	rlpCode, _ := rlp.EncodeToBytes(block)
 	frags := rs.DivideAndEncode(rlpCode)
-	return reedsolomon.Fragments{Fragments: frags, ID: id}
+	return return reedsolomon.Fragments{Fragments: frags, ID: id}
 }
 
 func (pm *ProtocolManager) TxToFragments(tx *types.Transaction) reedsolomon.Fragments {
