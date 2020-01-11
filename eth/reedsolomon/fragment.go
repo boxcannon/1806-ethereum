@@ -8,10 +8,13 @@ import (
 
 // Fragment of Block or Transactions
 type Fragment struct {
-	code        []byte
-	fingerprint common.Hash
-	pos         int
-	n           int
+	code []byte
+	pos  int
+}
+
+type Fragments struct {
+	Fragments []Fragment
+	ID        common.Hash
 }
 
 func (fragment *Fragment) Hash() common.Hash {
