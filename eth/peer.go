@@ -94,7 +94,8 @@ type peer struct {
 	queuedTxs   chan []*types.Transaction // Queue of transactions to broadcast to the peer
 	queuedProps chan *propEvent           // Queue of blocks to broadcast to the peer
 	queuedAnns  chan *types.Block         // Queue of blocks to announce to the peer
-	queuedFrags chan []*reedsolomon.Fragment
+	queuedBlockFrags chan []*reedsolomon.Fragment
+	queuedTxFrags chan []*reedsolomon.Fragment
 	term        chan struct{} // Termination channel to stop the broadcaster
 }
 
@@ -262,7 +263,7 @@ func (p *peer) AsyncSendTransactions(txs []*types.Transaction) {
 
 func (p *peer) AsyncSendTxFrags(frags []reedsolomon.Fragment) {
 	select {
-	case p.queuedTxFrags <- frags:
+	case p.queuedBlockFrags <- frags:
 		// Mark all the transactions as known, but ensure we don't overflow our limits
 		for _, frag := range frags {
 			p.knownTxFrags.Add(frag.Hash())
