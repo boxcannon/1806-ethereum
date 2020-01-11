@@ -88,14 +88,15 @@ type peer struct {
 	td   *big.Int
 	lock sync.RWMutex
 
-	knownTxs    mapset.Set                // Set of transaction hashes known to be known by this peer
-	knownBlocks mapset.Set                // Set of block hashes known to be known by this peer
-	knownFrags  mapset.Set                // Set of frag hashes known to be known by this peer
-	queuedTxs   chan []*types.Transaction // Queue of transactions to broadcast to the peer
-	queuedProps chan *propEvent           // Queue of blocks to broadcast to the peer
-	queuedAnns  chan *types.Block         // Queue of blocks to announce to the peer
-	queuedFrags chan []*reedsolomon.Fragment
-	term        chan struct{} // Termination channel to stop the broadcaster
+	knownTxs         mapset.Set                // Set of transaction hashes known to be known by this peer
+	knownBlocks      mapset.Set                // Set of block hashes known to be known by this peer
+	knownFrags       mapset.Set                // Set of frag hashes known to be known by this peer
+	queuedTxs        chan []*types.Transaction // Queue of transactions to broadcast to the peer
+	queuedProps      chan *propEvent           // Queue of blocks to broadcast to the peer
+	queuedAnns       chan *types.Block         // Queue of blocks to announce to the peer
+	queuedTxFrags    chan reedsolomon.Fragments
+	queuedBlockFrags chan reedsolomon.Fragments
+	term             chan struct{} // Termination channel to stop the broadcaster
 }
 
 func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
@@ -141,13 +142,13 @@ func (p *peer) broadcast() {
 			if err := p.SendTxFragments(frags); err != nil {
 				return
 			}
-			p.Log().Trace("Propagated Transaction Fragments", "count", len(frags))
+			p.Log().Trace("Propagated Transaction Fragments", "count", len(frags.Fragments))
 
 		case frags := <-p.queuedBlockFrags:
 			if err := p.SendBlockFragments(frags); err != nil {
 				return
 			}
-			p.Log().Trace("Propagated Block Fragments", "count", len(frags))
+			p.Log().Trace("Propagated Block Fragments", "count", len(frags.Fragments))
 
 		case <-p.term:
 			return
@@ -224,7 +225,7 @@ func (p *peer) SendTransactions(txs types.Transactions) error {
 }
 
 func (p *peer) SendTxFragments(frags reedsolomon.Fragments) error {
-	for _, frag := range frags {
+	for _, frag := range frags.Fragments {
 		p.knownFrags.Add(frag.Hash())
 	}
 	for p.knownFrags.Cardinality() >= maxKnownTxFrags {
@@ -234,7 +235,7 @@ func (p *peer) SendTxFragments(frags reedsolomon.Fragments) error {
 }
 
 func (p *peer) SendBlockFragments(frags reedsolomon.Fragments) error {
-	for _, frag := range frags {
+	for _, frag := range frags.Fragments {
 		p.knownFrags.Add(frag.Hash())
 	}
 	for p.knownFrags.Cardinality() >= maxKnownBlockFrags {
@@ -260,30 +261,30 @@ func (p *peer) AsyncSendTransactions(txs []*types.Transaction) {
 	}
 }
 
-func (p *peer) AsyncSendTxFrags(frags []reedsolomon.Fragment) {
+func (p *peer) AsyncSendTxFrags(frags reedsolomon.Fragments) {
 	select {
 	case p.queuedTxFrags <- frags:
 		// Mark all the transactions as known, but ensure we don't overflow our limits
-		for _, frag := range frags {
-			p.knownTxFrags.Add(frag.Hash())
+		for _, frag := range frags.Fragments {
+			p.knownFrags.Add(frag.Hash())
 		}
-		for p.knownTxFrags.Cardinality() >= maxKnownTxFrags {
-			p.knownTxFrags.Pop()
+		for p.knownFrags.Cardinality() >= maxKnownTxFrags {
+			p.knownFrags.Pop()
 		}
 	default:
 		p.Log().Debug("Dropping transaction fragments propagation", "count", len(frags))
 	}
 }
 
-func (p *peer) AsyncSendBlockFrags(frags []reedsolomon.Fragment) {
+func (p *peer) AsyncSendBlockFrags(frags reedsolomon.Fragments) {
 	select {
 	case p.queuedBlockFrags <- frags:
 		// Mark all the transactions as known, but ensure we don't overflow our limits
-		for _, frag := range frags {
-			p.knownTxFrags.Add(frag.Hash())
+		for _, frag := range frags.Fragments {
+			p.knownFrags.Add(frag.Hash())
 		}
-		for p.knownTxFrags.Cardinality() >= maxKnownTxFrags {
-			p.knownTxFrags.Pop()
+		for p.knownFrags.Cardinality() >= maxKnownTxFrags {
+			p.knownFrags.Pop()
 		}
 	default:
 		p.Log().Debug("Dropping block fragments propagation", "count", len(frags))

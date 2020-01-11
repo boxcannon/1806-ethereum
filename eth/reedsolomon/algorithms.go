@@ -28,11 +28,10 @@ import (
 //	}
 //	return subs
 //}
-
 const (
 	Primitive     = 0x11d
+	EccSymbol     = 200
 	NumberOfSlice = 40
-	EccSymbol     = 160
 )
 
 func IntToUint8(n int) uint8 {
