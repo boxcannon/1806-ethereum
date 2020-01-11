@@ -90,7 +90,8 @@ type peer struct {
 
 	knownTxs    mapset.Set                // Set of transaction hashes known to be known by this peer
 	knownBlocks mapset.Set                // Set of block hashes known to be known by this peer
-	knownFrags  mapset.Set                // Set of frag hashes known to be known by this peer
+	knownTxFrags	mapset.Set                // Set of frag hashes known to be known by this peer
+	knownBlockFrags	mapset.Set                // Set of frag hashes known to be known by this peer
 	queuedTxs   chan []*types.Transaction // Queue of transactions to broadcast to the peer
 	queuedProps chan *propEvent           // Queue of blocks to broadcast to the peer
 	queuedAnns  chan *types.Block         // Queue of blocks to announce to the peer
@@ -224,22 +225,38 @@ func (p *peer) SendTransactions(txs types.Transactions) error {
 	return p2p.Send(p.rw, TxMsg, txs)
 }
 
-func (p *peer) SendTxFragments(frags reedsolomon.Fragments) error {
-	for _, frag := range frags {
-		p.knownFrags.Add(frag.Hash())
+func (p *peer) MarkBlockFragments(hash common.Hash) {
+	// If we reached the memory allowance, drop a previously known transaction hash
+	for p.knownBlockFrags.Cardinality() >= maxKnownTxs {
+		p.knownBlockFrags.Pop()
 	}
-	for p.knownFrags.Cardinality() >= maxKnownTxFrags {
-		p.knownFrags.Pop()
+	p.knownBlockFrags.Add(hash)
+}
+
+func (p *peer) MarkTxFragments(hash common.Hash) {
+	// If we reached the memory allowance, drop a previously known transaction hash
+	for p.knownTxFrags.Cardinality() >= maxKnownTxs {
+		p.knownTxFrags.Pop()
+	}
+	p.knownTxs.Add(hash)
+}
+
+func (p *peer) SendTxFragments(frags reedsolomon.Fragments) error {
+	for _, frag := range frags.Fragments {
+		p.knownTxFrags.Add(frag.Hash())
+	}
+	for p.knownTxFrags.Cardinality() >= maxKnownTxFrags {
+		p.knownTxFrags.Pop()
 	}
 	return p2p.Send(p.rw, TxFragMsg, frags)
 }
 
 func (p *peer) SendBlockFragments(frags reedsolomon.Fragments) error {
-	for _, frag := range frags {
-		p.knownFrags.Add(frag.Hash())
+	for _, frag := range frags.Fragments {
+		p.knownBlockFrags.Add(frag.Hash())
 	}
-	for p.knownFrags.Cardinality() >= maxKnownBlockFrags {
-		p.knownFrags.Pop()
+	for p.knownBlockFrags.Cardinality() >= maxKnownBlockFrags {
+		p.knownBlockFrags.Pop()
 	}
 	return p2p.Send(p.rw, BlockFragMsg, frags)
 }
