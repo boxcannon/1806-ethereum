@@ -845,8 +845,8 @@ func (pm *ProtocolManager) BroadcastTxFrags(frags reedsolomon.Fragments) {
 		}
 		log.Trace("Broadcast block fragments", "hash", frag.Hash(), "recipients", len(peers))
 	}
-	for peer, frags := range fragset {
-		peer.AsyncSendBlockFrags(frags)
+	for peer, frag := range fragset {
+		peer.AsyncSendBlockFrags(frag)
 	}
 }
 
@@ -861,8 +861,8 @@ func (pm *ProtocolManager) BroadcastBlockFrags(frags reedsolomon.Fragments) {
 		}
 		log.Trace("Broadcast block fragments", "hash", frag.Hash(), "recipients", len(peers))
 	}
-	for peer, frags := range fragset {
-		peer.AsyncSendBlockFrags(frags)
+	for peer, frag := range fragset {
+		peer.AsyncSendBlockFrags(frag)
 	}
 }
 
@@ -874,7 +874,7 @@ func (pm *ProtocolManager) BlockToFragments(block *types.Block) reedsolomon.Frag
 	id := block.Hash()
 	rlpCode, _ := rlp.EncodeToBytes(block)
 	frags := rs.DivideAndEncode(rlpCode)
-	return return reedsolomon.Fragments{Fragments: frags, ID: id}
+	return reedsolomon.Fragments{Fragments: frags, ID: id}
 }
 
 func (pm *ProtocolManager) TxToFragments(tx *types.Transaction) reedsolomon.Fragments {
