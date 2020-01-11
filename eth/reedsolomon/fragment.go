@@ -11,6 +11,7 @@ type Fragment struct {
 	code        []byte
 	fingerprint common.Hash
 	pos         int
+	n           int
 }
 
 func (fragment *Fragment) Hash() common.Hash {

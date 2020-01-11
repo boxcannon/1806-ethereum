@@ -210,14 +210,6 @@ func (p *peer) MarkTransaction(hash common.Hash) {
 	p.knownTxs.Add(hash)
 }
 
-func (p *peer) MarkFragment(hash common.Hash) {
-	// If we reached the memory allowance, drop a previously known transaction hash
-	for p.knownFrags.Cardinality() >= maxKnownTxs {
-		p.knownFrags.Pop()
-	}
-	p.knownFrags.Add(hash)
-}
-
 // SendTransactions sends transactions to the peer and includes the hashes
 // in its transaction hash set for future reference.
 func (p *peer) SendTransactions(txs types.Transactions) error {

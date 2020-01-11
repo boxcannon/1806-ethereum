@@ -36,19 +36,19 @@ func (r *RSCodec) InitLookupTables() {
 
 // Encode given message into Reed-Solomon
 func (r *RSCodec) Encode(data string) (encoded []int) {
+	tmpMessage := []uint8(data)
 	byteMessage := make([]int, len(data))
-	for i, ch := range data {
+	for i, ch := range tmpMessage {
 		byteMessage[i] = int(ch)
 	}
-	//fmt.Println("Original message:", byteMessage)
-
 	g := rsGeneratorPoly(r.EccSymbols)
-
 	placeholder := make([]int, len(g)-1)
 	// Pad the message and divide it by the irreducible gnerator polynomial
+
 	_, remainder := gfPolyDivision(append(byteMessage, placeholder...), g)
 
 	encoded = append(byteMessage, remainder...)
+
 	return
 }
 

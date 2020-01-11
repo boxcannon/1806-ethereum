@@ -2,9 +2,67 @@ package reedsolomon
 
 import (
 	"bytes"
+	"encoding/binary"
 	"log"
 	"math"
+	"unsafe"
 )
+
+//func SplitSubN(s string, n int) []string {
+//	sub := ""
+//	subs := []string{}
+//
+//	runes := bytes.Runes([]byte(s))
+//	//fmt.Println(runes)
+//	fmt.Println("buhao", []byte(s))
+//	l := len(runes)
+//	for i, r := range s {
+//		fmt.Println(i, r)
+//		sub = sub + string(r)
+//		if (i + 1) % n == 0 {
+//			subs = append(subs, sub)
+//			sub = ""
+//		} else if (i + 1) == l {
+//			subs = append(subs, sub)
+//		}
+//	}
+//	return subs
+//}
+
+const (
+	Primitive     = 0x11d
+	NumberOfSlice = 40
+	EccSymbol     = 160
+)
+
+func IntToBytes(n int) []byte {
+	data := int64(n)
+	bytebuf := bytes.NewBuffer([]byte{})
+	binary.Write(bytebuf, binary.BigEndian, data)
+	return bytebuf.Bytes()
+}
+
+func IsLittleEndian() bool {
+	var i int32 = 0x01020304
+	u := unsafe.Pointer(&i)
+	pb := (*byte)(u)
+	b := *pb
+	return (b == 0x04)
+}
+
+func SplitSubN(s []byte, n int) [][]byte {
+	m := len(s) / n
+	res := make([][]byte, m)
+	pos := 0
+	for i := 0; i < m; i++ {
+		res[i] = make([]byte, n)
+		for j := 0; j < n; j++ {
+			res[i][j] = s[pos]
+			pos++
+		}
+	}
+	return res
+}
 
 // ========================================== //
 //             Used Algorithms                //
@@ -12,13 +70,6 @@ import (
 
 // efficient implementation of Sieve algo
 // return list of primes less then N
-
-const (
-	EccSymbol     = 200
-	Primitive     = 0x11d
-	NumberOfSlice = 40
-)
-
 func sieveOfEratosthenes(N int) (primes []int) {
 	b := make([]bool, N)
 	for i := 2; i < N; i++ {
@@ -31,23 +82,6 @@ func sieveOfEratosthenes(N int) (primes []int) {
 		}
 	}
 	return
-}
-func SplitSubN(s string, n int) []string {
-	sub := ""
-	subs := []string{}
-
-	runes := bytes.Runes([]byte(s))
-	l := len(runes)
-	for i, r := range runes {
-		sub = sub + string(r)
-		if (i+1)%n == 0 {
-			subs = append(subs, sub)
-			sub = ""
-		} else if (i + 1) == l {
-			subs = append(subs, sub)
-		}
-	}
-	return subs
 }
 
 // python-like modular division
