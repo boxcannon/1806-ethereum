@@ -17,7 +17,7 @@ type Fragments struct {
 	ID        common.Hash
 }
 
-func (fragment Fragment) Hash() common.Hash {
+func (fragment *Fragment) Hash() common.Hash {
 	v := rlpHash(fragment)
 	return v
 }
