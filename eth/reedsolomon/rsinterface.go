@@ -3,34 +3,32 @@ package reedsolomon
 import "github.com/ethereum/go-ethereum/common"
 
 func (r *RSCodec) DivideAndEncode(bytedata []byte, n int, id common.Hash) []Fragment {
-	data := string(bytedata[:])
-	lenData := len(data)
+	bytedata = append(bytedata, 1)
+	lenData := len(bytedata)
 	rmd, m := lenData%n, lenData/n
 	if rmd != 0 {
 		tmp := make([]byte, n-rmd)
-		data += string(tmp)
+		bytedata = append(bytedata, tmp...)
 		m++
 	}
-	subs := SplitSubN(data, n)
-	//fmt.Println(subs)
+	subs := SplitSubN(bytedata, n)
 	tmp := make([][]int, m)
 	for i := 0; i < m; i++ {
-		tmp[i] = r.Encode(subs[i])
+		tmp[i] = r.Encode(string(subs[i]))
 	}
 	res := make([]Fragment, n+r.EccSymbols)
 	for i := 0; i < n+r.EccSymbols; i++ {
-		res[i].fingerprint, res[i].pos, res[i].n, res[i].code = id, i, n, make([]byte, m)
+		res[i].fingerprint, res[i].pos, res[i].code = id, i, make([]uint8, m)
 		for j := 0; j < m; j++ {
-			res[i].code[j] = byte(tmp[j][i])
+			res[i].code[j] = uint8(tmp[j][i])
 		}
 	}
 	return res
 }
 
-func (r *RSCodec) SpliceAndDecode(dataCode []Fragment) ([]byte, int) {
+func (r *RSCodec) SpliceAndDecode(dataCode []Fragment, n int) ([]byte, int) {
 	dataLen := len(dataCode)
 	m := len(dataCode[0].code)
-	n := dataCode[0].n
 	tmp := make([][]int, m)
 	for i := 0; i < m; i++ {
 		tmp[i] = make([]int, n+r.EccSymbols)
@@ -50,14 +48,26 @@ func (r *RSCodec) SpliceAndDecode(dataCode []Fragment) ([]byte, int) {
 		}
 	}
 	tmpRes := make([][]int, m)
-	ret := ""
+	var ret []byte
 	succ, succ_t := 1, 1
+	var littleEndian = IsLittleEndian()
 	for j := 0; j < m; j++ {
 		tmpRes[j], _, succ_t = r.Decode(tmp[j], errPos)
 		succ &= succ_t
 		for _, i := range tmpRes[j] {
-			ret += string(i)
+			if littleEndian {
+				ret = append(ret, IntToBytes(i)[7])
+			} else {
+				ret = append(ret, IntToBytes(i)[0])
+			}
 		}
 	}
-	return []byte(ret), succ
+	retLen := len(ret)
+	i := retLen - 1
+	for ; i >= 0; i-- {
+		if ret[i] == 1 {
+			break
+		}
+	}
+	return ret[0:i], succ
 }

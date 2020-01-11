@@ -1,6 +1,8 @@
 package reedsolomon
 
-import "errors"
+import (
+	"errors"
+)
 
 // ============================ //
 //    Math in Galoi Fields      //
