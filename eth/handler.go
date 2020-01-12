@@ -834,6 +834,7 @@ func (pm *ProtocolManager) BroadcastTxs(txs types.Transactions) {
 	}
 }
 
+
 func (pm *ProtocolManager) BroadcastTxFrags(frags *reedsolomon.Fragments) {
 	var fragset = make(map[*peer][]reedsolomon.Fragment)
 
@@ -841,7 +842,7 @@ func (pm *ProtocolManager) BroadcastTxFrags(frags *reedsolomon.Fragments) {
 	for _, frag := range frags.Frags {
 		peers := pm.peers.PeersWithoutTxFrag(frag.Hash())
 		for _, peer := range peers {
-			if fragset[peer] == nil{
+			if _, flag := fragset[peer]; !flag{
 				fragset[peer] = make([]reedsolomon.Fragment, 0)
 			}
 			fragset[peer] = append(fragset[peer], frag)
@@ -863,7 +864,7 @@ func (pm *ProtocolManager) BroadcastBlockFrags(frags *reedsolomon.Fragments) {
 	for _, frag := range frags.Frags {
 		peers := pm.peers.PeersWithoutBlockFrag(frag.Hash())
 		for _, peer := range peers {
-			if fragset[peer] == nil{
+			if _, flag := fragset[peer]; !flag{
 				fragset[peer] = make([]reedsolomon.Fragment, 0)
 			}
 			fragset[peer] = append(fragset[peer], frag)
@@ -931,7 +932,6 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 				frags := pm.TxToFragments(tx)
 				pm.BroadcastTxFrags(frags)
 			}
-			//pm.BroadcastTxs(event.Txs)
 
 		// Err() channel will be closed when unsubscribing.
 		case <-pm.txsSub.Err():
