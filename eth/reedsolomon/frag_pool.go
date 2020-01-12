@@ -16,12 +16,27 @@ type FragPool struct {
 	cnt map[common.Hash]uint16
 }
 
+func NewFragPool() *FragPool{
+	return &FragPool{
+		RWMutex: sync.RWMutex{},
+		queue:   make(map[common.Hash]*FragNode, 0),
+		cnt:     make(map[common.Hash]uint16, 0),
+	}
+}
+
+// urge GC to collect garbage
+func (pool *FragPool)Stop(){
+	pool.queue = make(map[common.Hash]*FragNode, 0)
+	pool.cnt = make(map[common.Hash]uint16, 0)
+}
+
 // Insert a new fragment into pool
 func (pool *FragPool)Insert(frag Fragment, idx common.Hash) uint16{
-	tmp := &FragNode{}
+	tmp := &FragNode{
+		Content:frag,
+		Next:	nil,
+	}
 	insPos := idx
-	tmp.Next = nil
-	tmp.Content = frag
 	// first frag in the queue
 	pool.RLock()
 	if _, flag := pool.queue[insPos]; flag == false{

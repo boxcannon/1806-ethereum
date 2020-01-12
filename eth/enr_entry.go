@@ -37,16 +37,16 @@ func (e ethEntry) ENRKey() string {
 	return "eth"
 }
 
-func (eth *Ethereum) startEthEntryUpdate(ln *enode.LocalNode) {
+func (s *Ethereum) startEthEntryUpdate(ln *enode.LocalNode) {
 	var newHead = make(chan core.ChainHeadEvent, 10)
-	sub := eth.blockchain.SubscribeChainHeadEvent(newHead)
+	sub := s.blockchain.SubscribeChainHeadEvent(newHead)
 
 	go func() {
 		defer sub.Unsubscribe()
 		for {
 			select {
 			case <-newHead:
-				ln.Set(eth.currentEthEntry())
+				ln.Set(s.currentEthEntry())
 			case <-sub.Err():
 				// Would be nice to sync with eth.Stop, but there is no
 				// good way to do that.
@@ -56,6 +56,6 @@ func (eth *Ethereum) startEthEntryUpdate(ln *enode.LocalNode) {
 	}()
 }
 
-func (eth *Ethereum) currentEthEntry() *ethEntry {
-	return &ethEntry{ForkID: forkid.NewID(eth.blockchain)}
+func (s *Ethereum) currentEthEntry() *ethEntry {
+	return &ethEntry{ForkID: forkid.NewID(s.blockchain)}
 }
