@@ -1,6 +1,6 @@
 package reedsolomon
 
-func (r *RSCodec) DivideAndEncode(bytedata []byte) []Fragment {
+func (r *RSCodec) DivideAndEncode(bytedata []byte) []*Fragment {
 	bytedata = append(bytedata, 1)
 	lenData := len(bytedata)
 	rmd, m := lenData%r.NumSymbols, lenData/r.NumSymbols
@@ -14,9 +14,10 @@ func (r *RSCodec) DivideAndEncode(bytedata []byte) []Fragment {
 	for i := 0; i < m; i++ {
 		tmp[i] = r.Encode(string(subs[i]))
 	}
-	res := make([]Fragment, r.NumSymbols+r.EccSymbols)
+	res := make([]*Fragment, r.NumSymbols+r.EccSymbols)
 	for i := 0; i < r.NumSymbols+r.EccSymbols; i++ {
-		res[i].pos, res[i].code = IntToUint8(i), make([]uint8, m)
+		res[i] = NewFragment(m)
+		res[i].pos = IntToUint8(i)
 		for j := 0; j < m; j++ {
 			res[i].code[j] = uint8(tmp[j][i])
 		}
@@ -24,7 +25,7 @@ func (r *RSCodec) DivideAndEncode(bytedata []byte) []Fragment {
 	return res
 }
 
-func (r *RSCodec) SpliceAndDecode(dataCode []Fragment) ([]byte, int) {
+func (r *RSCodec) SpliceAndDecode(dataCode []*Fragment) ([]byte, int) {
 	dataLen := len(dataCode)
 	m := len(dataCode[0].code)
 	tmp := make([][]int, m)

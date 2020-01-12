@@ -39,14 +39,14 @@ var (
 )
 
 const (
-	maxKnownTxs        = 32768 // Maximum transactions hashes to keep in the known list (prevent DOS)
-	maxKnownBlocks     = 1024  // Maximum block hashes to keep in the known list (prevent DOS)
-	maxKnownTxFrags    = 32768 // Maximum transaction fragments hashes to keep in the known list (prevent DOS)
-	maxKnownBlockFrags = 1024  // Maximum block fragments hashes to keep in the known list (prevent DOS)
+	maxKnownTxs    = 32768 // Maximum transactions hashes to keep in the known list (prevent DOS)
+	maxKnownBlocks = 1024  // Maximum block hashes to keep in the known list (prevent DOS)
+	maxKnownFrags  = 32768 // Maximum transaction fragments hashes to keep in the known list (prevent DOS)
 	// maxQueuedTxs is the maximum number of transaction lists to queue up before
 	// dropping broadcasts. This is a sensitive number as a transaction list might
 	// contain a single transaction, or thousands.
-	maxQueuedTxs = 128
+	maxQueuedTxs   = 128
+	maxQueuedFrags = 128
 
 	// maxQueuedProps is the maximum number of block propagations to queue up before
 	// dropping broadcasts. There's not much point in queueing stale blocks, so a few
@@ -101,16 +101,19 @@ type peer struct {
 
 func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
 	return &peer{
-		Peer:        p,
-		rw:          rw,
-		version:     version,
-		id:          fmt.Sprintf("%x", p.ID().Bytes()[:8]),
-		knownTxs:    mapset.NewSet(),
-		knownBlocks: mapset.NewSet(),
-		queuedTxs:   make(chan []*types.Transaction, maxQueuedTxs),
-		queuedProps: make(chan *propEvent, maxQueuedProps),
-		queuedAnns:  make(chan *types.Block, maxQueuedAnns),
-		term:        make(chan struct{}),
+		Peer:             p,
+		rw:               rw,
+		version:          version,
+		id:               fmt.Sprintf("%x", p.ID().Bytes()[:8]),
+		knownTxs:         mapset.NewSet(),
+		knownBlocks:      mapset.NewSet(),
+		knownFrags:       mapset.NewSet(),
+		queuedTxs:        make(chan []*types.Transaction, maxQueuedTxs),
+		queuedProps:      make(chan *propEvent, maxQueuedProps),
+		queuedAnns:       make(chan *types.Block, maxQueuedAnns),
+		queuedTxFrags:    make(chan *reedsolomon.Fragments, maxQueuedFrags),
+		queuedBlockFrags: make(chan *reedsolomon.Fragments, maxQueuedFrags),
+		term:             make(chan struct{}),
 	}
 }
 
@@ -139,13 +142,13 @@ func (p *peer) broadcast() {
 			p.Log().Trace("Announced block", "number", block.Number(), "hash", block.Hash())
 
 		case frags := <-p.queuedTxFrags:
-			if err := p.SendTxFragments(*frags); err != nil {
+			if err := p.SendTxFragments(frags); err != nil {
 				return
 			}
 			p.Log().Trace("Propagated Transaction Fragments", "count", len(frags.Frags))
 
 		case frags := <-p.queuedBlockFrags:
-			if err := p.SendBlockFragments(*frags); err != nil {
+			if err := p.SendBlockFragments(frags); err != nil {
 				return
 			}
 			p.Log().Trace("Propagated Block Fragments", "count", len(frags.Frags))
@@ -224,21 +227,21 @@ func (p *peer) SendTransactions(txs types.Transactions) error {
 	return p2p.Send(p.rw, TxMsg, txs)
 }
 
-func (p *peer) SendTxFragments(frags reedsolomon.Fragments) error {
+func (p *peer) SendTxFragments(frags *reedsolomon.Fragments) error {
 	for _, frag := range frags.Frags {
 		p.knownFrags.Add(frag.Hash())
 	}
-	for p.knownFrags.Cardinality() >= maxKnownTxFrags {
+	for p.knownFrags.Cardinality() >= maxKnownFrags {
 		p.knownFrags.Pop()
 	}
 	return p2p.Send(p.rw, TxFragMsg, frags)
 }
 
-func (p *peer) SendBlockFragments(frags reedsolomon.Fragments) error {
+func (p *peer) SendBlockFragments(frags *reedsolomon.Fragments) error {
 	for _, frag := range frags.Frags {
 		p.knownFrags.Add(frag.Hash())
 	}
-	for p.knownFrags.Cardinality() >= maxKnownBlockFrags {
+	for p.knownFrags.Cardinality() >= maxKnownFrags {
 		p.knownFrags.Pop()
 	}
 	return p2p.Send(p.rw, BlockFragMsg, frags)

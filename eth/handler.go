@@ -71,9 +71,8 @@ type ProtocolManager struct {
 	networkID  uint64
 	forkFilter forkid.Filter // Fork ID filter, constant across the lifetime of the node
 
-	fastSync    uint32 // Flag whether fast sync is enabled (gets disabled if we already have blocks)
-	acceptTxs   uint32 // Flag whether we're considered synchronised (enables transaction processing)
-	acceptFrags uint32 // Flag whether we're considered synchronised
+	fastSync  uint32 // Flag whether fast sync is enabled (gets disabled if we already have blocks)
+	acceptTxs uint32 // Flag whether we're considered synchronised (enables transaction processing)
 
 	checkpointNumber uint64      // Block number for the sync progress validator to cross reference
 	checkpointHash   common.Hash // Block hash for the sync progress validator to cross reference
@@ -392,12 +391,12 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 	case msg.Code == TxFragMsg:
 		// Frags arrived, make sure we have a valid and fresh chain to handle them
-		if atomic.LoadUint32(&pm.acceptFrags) == 0 {
+		if atomic.LoadUint32(&pm.acceptTxs) == 0 {
 			break
 		}
-		// Transactions can be processed, parse all of them and deliver to the pool
-		var frags reedsolomon.Fragments
+		// Transaction fragments can be processed, parse all of them and deliver to the pool
 		var cnt uint16
+		frags := reedsolomon.NewFragments(0)
 		if err := msg.Decode(&frags); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
@@ -406,15 +405,23 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			p.MarkTransaction(frag.Hash())
 			cnt = pm.fragpool.Insert(frag, frags.ID)
 		}
-		if cnt >= minFragNum{
+		if cnt >= minFragNum {
 			res, flag := pm.fragpool.TryDecode(frags.ID)
 			// flag=1 means decode success
-			if flag == 1{
-
+			if flag == 1 {
+				var tx *types.Transaction
+				err = rlp.DecodeBytes(res, &tx)
+				if tx == nil {
+					return errResp(ErrDecode, "transaction %d is nil", i)
+				}
+				p.MarkTransaction(tx.Hash())
+				txs := make([]*types.Transaction, 1)
+				txs[0] = tx
+				pm.txpool.AddRemotes(txs)
+			} else {
+				panic("RS cannot decode")
 			}
 		}
-
-	case msg.Code == BlockFragMsg:
 
 	// Block header query, collect the requested headers and reply
 	case msg.Code == GetBlockHeadersMsg:
@@ -834,23 +841,22 @@ func (pm *ProtocolManager) BroadcastTxs(txs types.Transactions) {
 	}
 }
 
-
 func (pm *ProtocolManager) BroadcastTxFrags(frags *reedsolomon.Fragments) {
-	var fragset = make(map[*peer][]reedsolomon.Fragment)
+	var fragset = make(map[*peer][]*reedsolomon.Fragment)
 
 	// Broadcast transactions to a batch of peers not knowing about it
 	for _, frag := range frags.Frags {
 		peers := pm.peers.PeersWithoutTxFrag(frag.Hash())
 		for _, peer := range peers {
-			if _, flag := fragset[peer]; !flag{
-				fragset[peer] = make([]reedsolomon.Fragment, 0)
+			if _, flag := fragset[peer]; !flag {
+				fragset[peer] = make([]*reedsolomon.Fragment, 0)
 			}
 			fragset[peer] = append(fragset[peer], frag)
 		}
 		log.Trace("Broadcast block fragments", "hash", frag.Hash(), "recipients", len(peers))
 	}
 	for peer, frag := range fragset {
-		toSendFrags := reedsolomon.NewFragments()
+		toSendFrags := reedsolomon.NewFragments(0)
 		toSendFrags.ID = frags.ID
 		toSendFrags.Frags = frag
 		peer.AsyncSendTxFrags(toSendFrags)
@@ -858,21 +864,21 @@ func (pm *ProtocolManager) BroadcastTxFrags(frags *reedsolomon.Fragments) {
 }
 
 func (pm *ProtocolManager) BroadcastBlockFrags(frags *reedsolomon.Fragments) {
-	var fragset = make(map[*peer][]reedsolomon.Fragment)
+	var fragset = make(map[*peer][]*reedsolomon.Fragment)
 
 	// Broadcast Block to a batch of peers not knowing about it
 	for _, frag := range frags.Frags {
 		peers := pm.peers.PeersWithoutBlockFrag(frag.Hash())
 		for _, peer := range peers {
-			if _, flag := fragset[peer]; !flag{
-				fragset[peer] = make([]reedsolomon.Fragment, 0)
+			if _, flag := fragset[peer]; !flag {
+				fragset[peer] = make([]*reedsolomon.Fragment, 0)
 			}
 			fragset[peer] = append(fragset[peer], frag)
 		}
 		log.Trace("Broadcast block fragments", "hash", frag.Hash(), "recipients", len(peers))
 	}
 	for peer, frag := range fragset {
-		toSendFrags := reedsolomon.NewFragments()
+		toSendFrags := reedsolomon.NewFragments(0)
 		toSendFrags.ID = frags.ID
 		toSendFrags.Frags = frag
 		peer.AsyncSendBlockFrags(toSendFrags)
@@ -887,9 +893,9 @@ func (pm *ProtocolManager) BlockToFragments(block *types.Block) *reedsolomon.Fra
 	id := block.Hash()
 	rlpCode, _ := rlp.EncodeToBytes(block)
 	frags := rs.DivideAndEncode(rlpCode)
-	tmp := reedsolomon.NewFragments()
+	tmp := reedsolomon.NewFragments(0)
 	tmp.ID = id
-	for _, frag := range frags{
+	for _, frag := range frags {
 		tmp.Frags = append(tmp.Frags, frag)
 	}
 	return tmp
@@ -903,9 +909,9 @@ func (pm *ProtocolManager) TxToFragments(tx *types.Transaction) *reedsolomon.Fra
 	id := tx.Hash()
 	rlpCode, _ := rlp.EncodeToBytes(tx)
 	frags := rs.DivideAndEncode(rlpCode)
-	tmp := reedsolomon.NewFragments()
+	tmp := reedsolomon.NewFragments(0)
 	tmp.ID = id
-	for _, frag := range frags{
+	for _, frag := range frags {
 		tmp.Frags = append(tmp.Frags, frag)
 	}
 	return tmp

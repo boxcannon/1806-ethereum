@@ -6,9 +6,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/rlp"
 	"math/big"
 	"testing"
+	"time"
 )
 
 func newTestTransaction(from *ecdsa.PrivateKey, nonce uint64, datasize int) *types.Transaction {
@@ -33,10 +35,31 @@ func TestRSCodec_DivideAndEncode(t *testing.T) {
 	//for _, line := range a {
 	//	fmt.Println(line)
 	//}
+	fmt.Println(a)
+	//_=a
 	b, _ := rs.SpliceAndDecode(a)
-	var tx_decoded types.Transaction
-	rlp.DecodeBytes(b, &tx_decoded)
+	var txDecoded *types.Transaction
+	rlp.DecodeBytes(b, &txDecoded)
 	fmt.Println(b)
-	fmt.Println(tx_decoded)
+	fmt.Println(*txDecoded)
 	fmt.Println(*tx)
+	frags := NewFragments(0)
+	frags.Frags = a
+	frags.ID = tx.Hash()
+	fragsDecoded := NewFragments(len(frags.Frags))
+	for i := 0; i < len(frags.Frags[0].code); i++ {
+		fragsDecoded.Frags[i] = NewFragment(len(frags.Frags[0].code))
+	}
+	// try to encode and decode Fragments
+	size, r, _ := rlp.EncodeToReader(frags)
+	msg := p2p.Msg{
+		Code:       1,
+		Size:       uint32(size),
+		Payload:    r,
+		ReceivedAt: time.Time{},
+	}
+	s := rlp.NewStream(msg.Payload, uint64(msg.Size))
+	err := s.Decode(&fragsDecoded)
+	fmt.Println(err)
+	PrintFrags(fragsDecoded)
 }
