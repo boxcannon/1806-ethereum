@@ -12,12 +12,12 @@ type Fragment struct {
 	pos  uint8
 }
 
-func NewFragment() *Fragment{
+/*func NewFragment() *Fragment{
 	return &Fragment{
 		code:	make([]byte, 0),
 		pos:	0,
 	}
-}
+}*/
 
 type Fragments struct {
 	Frags	[]Fragment
