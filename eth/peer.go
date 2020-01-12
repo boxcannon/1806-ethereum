@@ -94,8 +94,8 @@ type peer struct {
 	queuedTxs        chan []*types.Transaction // Queue of transactions to broadcast to the peer
 	queuedProps      chan *propEvent           // Queue of blocks to broadcast to the peer
 	queuedAnns       chan *types.Block         // Queue of blocks to announce to the peer
-	queuedTxFrags    chan reedsolomon.Fragments
-	queuedBlockFrags chan reedsolomon.Fragments
+	queuedTxFrags    chan *reedsolomon.Fragments
+	queuedBlockFrags chan *reedsolomon.Fragments
 	term             chan struct{} // Termination channel to stop the broadcaster
 }
 
@@ -139,16 +139,16 @@ func (p *peer) broadcast() {
 			p.Log().Trace("Announced block", "number", block.Number(), "hash", block.Hash())
 
 		case frags := <-p.queuedTxFrags:
-			if err := p.SendTxFragments(frags); err != nil {
+			if err := p.SendTxFragments(*frags); err != nil {
 				return
 			}
-			p.Log().Trace("Propagated Transaction Fragments", "count", len(frags.Fragments))
+			p.Log().Trace("Propagated Transaction Fragments", "count", len(frags.Frags))
 
 		case frags := <-p.queuedBlockFrags:
-			if err := p.SendBlockFragments(frags); err != nil {
+			if err := p.SendBlockFragments(*frags); err != nil {
 				return
 			}
-			p.Log().Trace("Propagated Block Fragments", "count", len(frags.Fragments))
+			p.Log().Trace("Propagated Block Fragments", "count", len(frags.Frags))
 
 		case <-p.term:
 			return
@@ -225,7 +225,7 @@ func (p *peer) SendTransactions(txs types.Transactions) error {
 }
 
 func (p *peer) SendTxFragments(frags reedsolomon.Fragments) error {
-	for _, frag := range frags.Fragments {
+	for _, frag := range frags.Frags {
 		p.knownFrags.Add(frag.Hash())
 	}
 	for p.knownFrags.Cardinality() >= maxKnownTxFrags {
@@ -235,7 +235,7 @@ func (p *peer) SendTxFragments(frags reedsolomon.Fragments) error {
 }
 
 func (p *peer) SendBlockFragments(frags reedsolomon.Fragments) error {
-	for _, frag := range frags.Fragments {
+	for _, frag := range frags.Frags {
 		p.knownFrags.Add(frag.Hash())
 	}
 	for p.knownFrags.Cardinality() >= maxKnownBlockFrags {
@@ -261,33 +261,33 @@ func (p *peer) AsyncSendTransactions(txs []*types.Transaction) {
 	}
 }
 
-func (p *peer) AsyncSendTxFrags(frags reedsolomon.Fragments) {
+func (p *peer) AsyncSendTxFrags(frags *reedsolomon.Fragments) {
 	select {
 	case p.queuedTxFrags <- frags:
 		// Mark all the transactions as known, but ensure we don't overflow our limits
-		for _, frag := range frags.Fragments {
+		for _, frag := range frags.Frags {
 			p.knownFrags.Add(frag.Hash())
 		}
 		for p.knownFrags.Cardinality() >= maxKnownTxFrags {
 			p.knownFrags.Pop()
 		}
 	default:
-		p.Log().Debug("Dropping transaction fragments propagation", "count", len(frags.Fragments))
+		p.Log().Debug("Dropping transaction fragments propagation", "count", len(frags.Frags))
 	}
 }
 
-func (p *peer) AsyncSendBlockFrags(frags reedsolomon.Fragments) {
+func (p *peer) AsyncSendBlockFrags(frags *reedsolomon.Fragments) {
 	select {
 	case p.queuedBlockFrags <- frags:
 		// Mark all the transactions as known, but ensure we don't overflow our limits
-		for _, frag := range frags.Fragments {
+		for _, frag := range frags.Frags {
 			p.knownFrags.Add(frag.Hash())
 		}
 		for p.knownFrags.Cardinality() >= maxKnownTxFrags {
 			p.knownFrags.Pop()
 		}
 	default:
-		p.Log().Debug("Dropping block fragments propagation", "count", len(frags.Fragments))
+		p.Log().Debug("Dropping block fragments propagation", "count", len(frags.Frags))
 	}
 }
 

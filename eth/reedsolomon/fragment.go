@@ -12,9 +12,22 @@ type Fragment struct {
 	pos  uint8
 }
 
+func NewFragment() *Fragment{
+	return &Fragment{
+		code:	make([]byte, 0),
+		pos:	0,
+	}
+}
+
 type Fragments struct {
-	Fragments []Fragment
-	ID        common.Hash
+	Frags	[]Fragment
+	ID		common.Hash
+}
+
+func NewFragments() *Fragments{
+	return &Fragments{
+		Frags:	make([]Fragment, 0),
+	}
 }
 
 func (fragment *Fragment) Hash() common.Hash {

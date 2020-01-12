@@ -401,7 +401,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if err := msg.Decode(&frags); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
-		for _, frag := range frags.Fragments {
+		for _, frag := range frags.Frags {
 			// Validate and mark the remote transaction
 			p.MarkTransaction(frag.Hash())
 			cnt = pm.fragpool.Insert(frag, frags.ID)
@@ -834,39 +834,51 @@ func (pm *ProtocolManager) BroadcastTxs(txs types.Transactions) {
 	}
 }
 
-func (pm *ProtocolManager) BroadcastTxFrags(frags reedsolomon.Fragments) {
+func (pm *ProtocolManager) BroadcastTxFrags(frags *reedsolomon.Fragments) {
 	var fragset = make(map[*peer][]reedsolomon.Fragment)
 
 	// Broadcast transactions to a batch of peers not knowing about it
-	for _, frag := range frags.Fragments {
+	for _, frag := range frags.Frags {
 		peers := pm.peers.PeersWithoutTxFrag(frag.Hash())
 		for _, peer := range peers {
+			if fragset[peer] == nil{
+				fragset[peer] = make([]reedsolomon.Fragment, 0)
+			}
 			fragset[peer] = append(fragset[peer], frag)
 		}
 		log.Trace("Broadcast block fragments", "hash", frag.Hash(), "recipients", len(peers))
 	}
 	for peer, frag := range fragset {
-		peer.AsyncSendBlockFrags(frag)
+		toSendFrags := reedsolomon.NewFragments()
+		toSendFrags.ID = frags.ID
+		toSendFrags.Frags = frag
+		peer.AsyncSendTxFrags(toSendFrags)
 	}
 }
 
-func (pm *ProtocolManager) BroadcastBlockFrags(frags reedsolomon.Fragments) {
+func (pm *ProtocolManager) BroadcastBlockFrags(frags *reedsolomon.Fragments) {
 	var fragset = make(map[*peer][]reedsolomon.Fragment)
 
 	// Broadcast Block to a batch of peers not knowing about it
-	for _, frag := range frags.Fragments {
+	for _, frag := range frags.Frags {
 		peers := pm.peers.PeersWithoutBlockFrag(frag.Hash())
 		for _, peer := range peers {
+			if fragset[peer] == nil{
+				fragset[peer] = make([]reedsolomon.Fragment, 0)
+			}
 			fragset[peer] = append(fragset[peer], frag)
 		}
 		log.Trace("Broadcast block fragments", "hash", frag.Hash(), "recipients", len(peers))
 	}
 	for peer, frag := range fragset {
-		peer.AsyncSendBlockFrags(frag)
+		toSendFrags := reedsolomon.NewFragments()
+		toSendFrags.ID = frags.ID
+		toSendFrags.Frags = frag
+		peer.AsyncSendBlockFrags(toSendFrags)
 	}
 }
 
-func (pm *ProtocolManager) BlockToFragments(block *types.Block) reedsolomon.Fragments {
+func (pm *ProtocolManager) BlockToFragments(block *types.Block) *reedsolomon.Fragments {
 	rs := &reedsolomon.RSCodec{
 		Primitive:  reedsolomon.Primitive,
 		EccSymbols: reedsolomon.EccSymbol,
@@ -874,10 +886,15 @@ func (pm *ProtocolManager) BlockToFragments(block *types.Block) reedsolomon.Frag
 	id := block.Hash()
 	rlpCode, _ := rlp.EncodeToBytes(block)
 	frags := rs.DivideAndEncode(rlpCode)
-	return reedsolomon.Fragments{Fragments: frags, ID: id}
+	tmp := reedsolomon.NewFragments()
+	tmp.ID = id
+	for _, frag := range frags{
+		tmp.Frags = append(tmp.Frags, frag)
+	}
+	return tmp
 }
 
-func (pm *ProtocolManager) TxToFragments(tx *types.Transaction) reedsolomon.Fragments {
+func (pm *ProtocolManager) TxToFragments(tx *types.Transaction) *reedsolomon.Fragments {
 	rs := &reedsolomon.RSCodec{
 		Primitive:  reedsolomon.Primitive,
 		EccSymbols: reedsolomon.EccSymbol,
@@ -885,7 +902,12 @@ func (pm *ProtocolManager) TxToFragments(tx *types.Transaction) reedsolomon.Frag
 	id := tx.Hash()
 	rlpCode, _ := rlp.EncodeToBytes(tx)
 	frags := rs.DivideAndEncode(rlpCode)
-	return reedsolomon.Fragments{Fragments: frags, ID: id}
+	tmp := reedsolomon.NewFragments()
+	tmp.ID = id
+	for _, frag := range frags{
+		tmp.Frags = append(tmp.Frags, frag)
+	}
+	return tmp
 }
 
 // Mined broadcast loop
