@@ -46,7 +46,7 @@ const schema string = `
         # or in the case of a contract, the number of contracts created. Otherwise
         # known as the nonce.
         transactionCount: Long!
-        # Code contains the smart contract code for this account, if the account
+        # code contains the smart contract code for this account, if the account
         # is a (non-self-destructed) contract.
         code: Bytes!
         # Storage provides access to the storage of a contract account, indexed

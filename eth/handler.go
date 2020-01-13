@@ -20,13 +20,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/eth/reedsolomon"
-	"math"
-	"math/big"
-	"sync"
-	"sync/atomic"
-	"time"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/core"
@@ -34,6 +27,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/downloader"
 	"github.com/ethereum/go-ethereum/eth/fetcher"
+	"github.com/ethereum/go-ethereum/eth/reedsolomon"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
@@ -42,6 +36,11 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/trie"
+	"math"
+	"math/big"
+	"sync"
+	"sync/atomic"
+	"time"
 )
 
 const (
@@ -71,8 +70,8 @@ type ProtocolManager struct {
 	networkID  uint64
 	forkFilter forkid.Filter // Fork ID filter, constant across the lifetime of the node
 
-	fastSync  uint32 // Flag whether fast sync is enabled (gets disabled if we already have blocks)
-	acceptTxs uint32 // Flag whether we're considered synchronised (enables transaction processing)
+	fastSync    uint32 // Flag whether fast sync is enabled (gets disabled if we already have blocks)
+	acceptTxs   uint32 // Flag whether we're considered synchronised (enables transaction processing)
 	acceptFrags uint32 // Flag whether we're considered synchronised (enables fragment processing)
 
 	checkpointNumber uint64      // Block number for the sync progress validator to cross reference
@@ -397,13 +396,13 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		// Transaction fragments can be processed, parse all of them and deliver to the pool
 		var cnt uint16
-		frags := reedsolomon.NewFragments(0)
+		var frags reedsolomon.Fragments
 		if err := msg.Decode(&frags); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 		for _, frag := range frags.Frags {
 			// Validate and mark the remote transaction
-			p.MarkTransaction(frag.Hash())
+			p.MarkFragment(frag.Hash())
 			cnt = pm.fragpool.Insert(frag, frags.ID)
 		}
 		if cnt >= minFragNum {
@@ -412,6 +411,15 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			if flag == 1 {
 				var tx *types.Transaction
 				err = rlp.DecodeBytes(res, tx)
+				if err != nil {
+					return err
+				}
+				if tx == nil {
+					return errResp(ErrDecode, "transaction is nil")
+				}
+				if tx.Hash() != frags.ID {
+					return errResp(ErrDecode, "RS decode is wrong")
+				}
 				p.MarkTransaction(tx.Hash())
 				txs := make([]*types.Transaction, 1)
 				txs[0] = tx
@@ -421,6 +429,59 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 		}
 
+	case msg.Code == BlockFragMsg:
+		var cnt uint16
+		var frags reedsolomon.Fragments
+		if err := msg.Decode(&frags); err != nil {
+			return errResp(ErrDecode, "msg %v: %v", msg, err)
+		}
+		for _, frag := range frags.Frags {
+			p.MarkFragment(frag.Hash())
+			cnt = pm.fragpool.Insert(frag, frags.ID)
+		}
+		if cnt >= minFragNum {
+			res, flag := pm.fragpool.TryDecode(frags.ID)
+			if flag == 1 {
+				var request newBlockData
+				if err = rlp.DecodeBytes(res, &request); err != nil {
+					return errResp(ErrDecode, "%v: %v", msg, err)
+				}
+				if request.Block.Hash() != frags.ID {
+					return errResp(ErrDecode, "wrong RS decode result")
+				}
+				if err := request.sanityCheck(); err != nil {
+					return err
+				}
+				request.Block.ReceivedAt = msg.ReceivedAt
+				request.Block.ReceivedFrom = p
+
+				// Mark the peer as owning the block and schedule it for import
+				p.MarkBlock(request.Block.Hash())
+				pm.fetcher.Enqueue(p.id, request.Block)
+
+				// Assuming the block is importable by the peer, but possibly not yet done so,
+				// calculate the head hash and TD that the peer truly must have.
+				var (
+					trueHead = request.Block.ParentHash()
+					trueTD   = new(big.Int).Sub(request.TD, request.Block.Difficulty())
+				)
+				// Update the peer's total difficulty if better than the previous
+				if _, td := p.Head(); trueTD.Cmp(td) > 0 {
+					p.SetHead(trueHead, trueTD)
+
+					// Schedule a sync if above ours. Note, this will not fire a sync for a gap of
+					// a single block (as the true TD is below the propagated block), however this
+					// scenario should easily be covered by the fetcher.
+					currentBlock := pm.blockchain.CurrentBlock()
+					if trueTD.Cmp(pm.blockchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())) > 0 {
+						go pm.synchronise(p)
+					}
+				}
+
+			} else {
+				panic("cannot RS decode")
+			}
+		}
 	// Block header query, collect the requested headers and reply
 	case msg.Code == GetBlockHeadersMsg:
 		// Decode the complex header query
@@ -883,20 +944,30 @@ func (pm *ProtocolManager) BroadcastBlockFrags(frags *reedsolomon.Fragments) {
 	}
 }
 
-func (pm *ProtocolManager) BlockToFragments(block *types.Block) *reedsolomon.Fragments {
+func (pm *ProtocolManager) BlockToFragments(block *types.Block) (*reedsolomon.Fragments, error) {
 	rs := &reedsolomon.RSCodec{
 		Primitive:  reedsolomon.Primitive,
 		EccSymbols: reedsolomon.EccSymbol,
 	}
+	var td *big.Int
+	if parent := pm.blockchain.GetBlock(block.ParentHash(), block.NumberU64()-1); parent != nil {
+		td = new(big.Int).Add(block.Difficulty(), pm.blockchain.GetTd(block.ParentHash(), block.NumberU64()-1))
+	} else {
+		return nil, fmt.Errorf("Propagating dangling block")
+	}
 	id := block.Hash()
-	rlpCode, _ := rlp.EncodeToBytes(block)
+	request := newBlockData{
+		Block: block,
+		TD:    td,
+	}
+	rlpCode, _ := rlp.EncodeToBytes(request)
 	frags := rs.DivideAndEncode(rlpCode)
 	tmp := reedsolomon.NewFragments(0)
 	tmp.ID = id
 	for _, frag := range frags {
 		tmp.Frags = append(tmp.Frags, frag)
 	}
-	return tmp
+	return tmp, nil
 }
 
 func (pm *ProtocolManager) TxToFragments(tx *types.Transaction) *reedsolomon.Fragments {
@@ -920,7 +991,11 @@ func (pm *ProtocolManager) minedBroadcastLoop() {
 	// automatically stops if unsubscribe
 	for obj := range pm.minedBlockSub.Chan() {
 		if ev, ok := obj.Data.(core.NewMinedBlockEvent); ok {
-			frags := pm.BlockToFragments(ev.Block)
+			frags, err := pm.BlockToFragments(ev.Block)
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
 			pm.BroadcastBlockFrags(frags)
 			//pm.BroadcastBlock(ev.Block, true)  // First propagate block to peers
 			//pm.BroadcastBlock(ev.Block, false) // Only then announce to the rest

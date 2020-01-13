@@ -343,7 +343,7 @@ func isGenerated(file string) bool {
 	n, _ := fd.Read(buf)
 	buf = buf[:n]
 	for _, l := range bytes.Split(buf, []byte("\n")) {
-		if bytes.HasPrefix(l, []byte("// Code generated")) {
+		if bytes.HasPrefix(l, []byte("// code generated")) {
 			return true
 		}
 	}

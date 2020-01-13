@@ -395,7 +395,7 @@ func (s *stateObject) Address() common.Address {
 	return s.address
 }
 
-// Code returns the contract code associated with this object, if any.
+// code returns the contract code associated with this object, if any.
 func (s *stateObject) Code(db Database) []byte {
 	if s.code != nil {
 		return s.code

@@ -218,7 +218,7 @@ func compareStateObjects(so0, so1 *stateObject, t *testing.T) {
 		t.Fatalf("CodeHash mismatch: have %v, want %v", so0.CodeHash(), so1.CodeHash())
 	}
 	if !bytes.Equal(so0.code, so1.code) {
-		t.Fatalf("Code mismatch: have %v, want %v", so0.code, so1.code)
+		t.Fatalf("code mismatch: have %v, want %v", so0.code, so1.code)
 	}
 
 	if len(so1.dirtyStorage) != len(so0.dirtyStorage) {

@@ -523,7 +523,7 @@ type MsgFilter struct {
 	// Proto is matched against a message's protocol
 	Proto string
 
-	// Code is matched against a message's code, with -1 matching all codes
+	// code is matched against a message's code, with -1 matching all codes
 	Code int64
 }
 

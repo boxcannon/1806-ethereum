@@ -59,7 +59,7 @@ func TestMocker(t *testing.T) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		t.Fatalf("Invalid Status Code received, expected 200, got %d", resp.StatusCode)
+		t.Fatalf("Invalid Status code received, expected 200, got %d", resp.StatusCode)
 	}
 
 	//check the list is at least 1 in size
@@ -125,7 +125,7 @@ func TestMocker(t *testing.T) {
 		t.Fatalf("Could not start mocker: %s", err)
 	}
 	if resp.StatusCode != 200 {
-		t.Fatalf("Invalid Status Code received for starting mocker, expected 200, got %d", resp.StatusCode)
+		t.Fatalf("Invalid Status code received for starting mocker, expected 200, got %d", resp.StatusCode)
 	}
 
 	wg.Wait()
@@ -146,7 +146,7 @@ func TestMocker(t *testing.T) {
 		t.Fatalf("Could not stop mocker: %s", err)
 	}
 	if resp.StatusCode != 200 {
-		t.Fatalf("Invalid Status Code received for stopping mocker, expected 200, got %d", resp.StatusCode)
+		t.Fatalf("Invalid Status code received for stopping mocker, expected 200, got %d", resp.StatusCode)
 	}
 
 	//reset the network

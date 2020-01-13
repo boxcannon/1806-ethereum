@@ -2314,7 +2314,7 @@ func TestDeleteCreateRevert(t *testing.T) {
 				address: {Balance: funds},
 				// The address 0xAAAAA selfdestructs if called
 				aa: {
-					// Code needs to just selfdestruct
+					// code needs to just selfdestruct
 					Code:    []byte{byte(vm.PC), 0xFF},
 					Nonce:   1,
 					Balance: big.NewInt(0),

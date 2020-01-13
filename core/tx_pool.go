@@ -930,7 +930,7 @@ func (pool *TxPool) queueTxEvent(tx *types.Transaction) {
 	}
 }
 
-// scheduleReorgLoop schedules runs of reset and promoteExecutables. Code above should not
+// scheduleReorgLoop schedules runs of reset and promoteExecutables. code above should not
 // call those methods directly, but request them being run using requestReset and
 // requestPromoteExecutables instead.
 func (pool *TxPool) scheduleReorgLoop() {
