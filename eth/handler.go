@@ -975,6 +975,7 @@ func (pm *ProtocolManager) TxToFragments(tx *types.Transaction) *reedsolomon.Fra
 	rs := &reedsolomon.RSCodec{
 		Primitive:  reedsolomon.Primitive,
 		EccSymbols: reedsolomon.EccSymbol,
+		NumSymbols: reedsolomon.NumSymbol,
 	}
 	id := tx.Hash()
 	rlpCode, _ := rlp.EncodeToBytes(tx)
