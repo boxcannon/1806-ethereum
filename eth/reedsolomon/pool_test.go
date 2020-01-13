@@ -2,15 +2,18 @@ package reedsolomon
 
 import (
 	"fmt"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/rlp"
 	"testing"
-	"time"
 )
 
 func TestFragPool_TryDecode(t *testing.T) {
 	var testAccount, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+	var cnt uint16
+	var newtx *types.Transaction
+
+	pool := NewFragPool()
 	tx := newTestTransaction(testAccount, 0, 0)
 	rs := RSCodec{
 		Primitive:  0x11d,
@@ -25,20 +28,20 @@ func TestFragPool_TryDecode(t *testing.T) {
 	frags := NewFragments(0)
 	frags.Frags = a
 	frags.ID = tx.Hash()
-	fragsDecoded := NewFragments(len(frags.Frags))
-	for i := 0; i < len(frags.Frags[0].code); i++ {
-		fragsDecoded.Frags[i] = NewFragment(len(frags.Frags[0].code))
+	for _, frag := range frags.Frags {
+		// Validate and mark the remote transaction
+		cnt = pool.Insert(frag, frags.ID)
 	}
-	// try to encode and decode Fragments
-	size, r, _ := rlp.EncodeToReader(frags)
-	msg := p2p.Msg{
-		Code:       1,
-		Size:       uint32(size),
-		Payload:    r,
-		ReceivedAt: time.Time{},
+	fmt.Printf("%d fragments in pool\n", cnt)
+	res, flag := pool.TryDecode(frags.ID)
+	fmt.Println(res)
+	// flag=1 means decode success
+	if flag == 1 {
+		err := rlp.DecodeBytes(res, &newtx)
+		if err != nil{
+			fmt.Printf("Oops! Mistake occurs%v\n", err)
+		}
 	}
-	s := rlp.NewStream(msg.Payload, uint64(msg.Size))
-	err := s.Decode(&fragsDecoded)
-	fmt.Println(err)
-	PrintFrags(fragsDecoded)
+	fmt.Println(tx)
+	fmt.Println(newtx)
 }
