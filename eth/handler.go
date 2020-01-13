@@ -411,7 +411,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			// flag=1 means decode success
 			if flag == 1 {
 				var tx *types.Transaction
-				err = rlp.DecodeBytes(res, tx)
+				err = rlp.DecodeBytes(res, &tx)
 				p.MarkTransaction(tx.Hash())
 				txs := make([]*types.Transaction, 1)
 				txs[0] = tx

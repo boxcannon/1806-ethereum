@@ -11,14 +11,14 @@ type FragNode struct {
 }
 
 type FragPool struct {
-	sync.RWMutex
+	sync.Mutex
 	queue map[common.Hash]*FragNode
 	cnt   map[common.Hash]uint16
 }
 
 func NewFragPool() *FragPool {
 	return &FragPool{
-		RWMutex: sync.RWMutex{},
+		Mutex: sync.Mutex{},
 		queue:   make(map[common.Hash]*FragNode, 0),
 		cnt:     make(map[common.Hash]uint16, 0),
 	}
@@ -32,28 +32,25 @@ func (pool *FragPool) Stop() {
 
 // Insert a new fragment into pool
 func (pool *FragPool) Insert(frag *Fragment, idx common.Hash) uint16 {
+	//fmt.Printf("Insertion starts here\n")
 	tmp := &FragNode{
 		Content: frag,
 		Next:    nil,
 	}
 	insPos := idx
 	flag := true
-	pool.RLock()
-	defer pool.RUnlock()
-
+	pool.Lock()
+	defer pool.Unlock()
 	// first frag in the queue
 	if _, flag := pool.queue[insPos]; !flag {
-		pool.Lock()
 		pool.queue[insPos] = tmp
-		pool.Unlock()
 	} else {
 		p := pool.queue[insPos]
 		if tmp.Content.pos < p.Content.pos {
-			pool.Lock()
 			pool.queue[insPos] = tmp
 			tmp.Next = p
-			pool.Unlock()
 		} else {
+			//fmt.Printf("Try to walk list\n")
 			for ; p.Next != nil; p = p.Next {
 				//already has this block
 				if tmp.Content.pos == p.Next.Content.pos{
@@ -65,13 +62,12 @@ func (pool *FragPool) Insert(frag *Fragment, idx common.Hash) uint16 {
 				}
 			}
 			if flag{
-				pool.Lock()
 				tmp.Next = p.Next
 				p.Next = tmp
-				pool.Unlock()
 			}
 		}
 	}
+	//fmt.Printf("Insertion ends here\n")
 	if flag{
 		pool.cnt[insPos]++
 	}
@@ -92,7 +88,7 @@ func (pool *FragPool) TryDecode(pos common.Hash) ([]byte, int) {
 	rs.InitLookupTables()
 
 	data := make([]*Fragment, 0)
-	pool.RLock()
+	pool.Lock()
 	p := pool.queue[pos]
 	for ; p != nil; p = p.Next {
 		data = append(data, p.Content)
