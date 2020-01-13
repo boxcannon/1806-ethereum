@@ -81,9 +81,9 @@ func (pool *FragPool) Clean(pos common.Hash) {
 
 func (pool *FragPool) TryDecode(pos common.Hash) ([]byte, int) {
 	rs := RSCodec{
-		Primitive:  0x11d,
-		EccSymbols: 160,
-		NumSymbols: 40,
+		Primitive:  Primitive,
+		EccSymbols: EccSymbol,
+		NumSymbols: NumSymbol,
 	}
 	rs.InitLookupTables()
 
