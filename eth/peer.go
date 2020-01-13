@@ -271,7 +271,7 @@ func (p *peer) AsyncSendTxFrags(frags *reedsolomon.Fragments) {
 		for _, frag := range frags.Frags {
 			p.knownFrags.Add(frag.Hash())
 		}
-		for p.knownFrags.Cardinality() >= maxKnownTxFrags {
+		for p.knownFrags.Cardinality() >= maxKnownFrags {
 			p.knownFrags.Pop()
 		}
 	default:
@@ -286,7 +286,7 @@ func (p *peer) AsyncSendBlockFrags(frags *reedsolomon.Fragments) {
 		for _, frag := range frags.Frags {
 			p.knownFrags.Add(frag.Hash())
 		}
-		for p.knownFrags.Cardinality() >= maxKnownTxFrags {
+		for p.knownFrags.Cardinality() >= maxKnownFrags {
 			p.knownFrags.Pop()
 		}
 	default:

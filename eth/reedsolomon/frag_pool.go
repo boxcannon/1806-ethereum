@@ -39,8 +39,10 @@ func (pool *FragPool) Insert(frag *Fragment, idx common.Hash) uint16 {
 	insPos := idx
 	flag := true
 	pool.RLock()
+	defer pool.RUnlock()
+
 	// first frag in the queue
-	if _, flag := pool.queue[insPos]; flag == false {
+	if _, flag := pool.queue[insPos]; !flag {
 		pool.Lock()
 		pool.queue[insPos] = tmp
 		pool.Unlock()
@@ -70,7 +72,6 @@ func (pool *FragPool) Insert(frag *Fragment, idx common.Hash) uint16 {
 			}
 		}
 	}
-	pool.RUnlock()
 	if flag{
 		pool.cnt[insPos]++
 	}
