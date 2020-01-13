@@ -37,8 +37,9 @@ func (pool *FragPool) Insert(frag *Fragment, idx common.Hash) uint16 {
 		Next:    nil,
 	}
 	insPos := idx
-	// first frag in the queue
+	flag := true
 	pool.RLock()
+	// first frag in the queue
 	if _, flag := pool.queue[insPos]; flag == false {
 		pool.Lock()
 		pool.queue[insPos] = tmp
@@ -52,18 +53,27 @@ func (pool *FragPool) Insert(frag *Fragment, idx common.Hash) uint16 {
 			pool.Unlock()
 		} else {
 			for ; p.Next != nil; p = p.Next {
+				//already has this block
+				if tmp.Content.pos == p.Next.Content.pos{
+					flag = false
+					break
+				}
 				if tmp.Content.pos > p.Next.Content.pos {
 					break
 				}
 			}
-			pool.Lock()
-			tmp.Next = p.Next
-			p.Next = tmp
-			pool.Unlock()
+			if flag{
+				pool.Lock()
+				tmp.Next = p.Next
+				p.Next = tmp
+				pool.Unlock()
+			}
 		}
 	}
 	pool.RUnlock()
-	pool.cnt[insPos] += 1
+	if flag{
+		pool.cnt[insPos]++
+	}
 	return pool.cnt[insPos]
 }
 

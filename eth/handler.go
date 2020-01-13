@@ -73,6 +73,7 @@ type ProtocolManager struct {
 
 	fastSync  uint32 // Flag whether fast sync is enabled (gets disabled if we already have blocks)
 	acceptTxs uint32 // Flag whether we're considered synchronised (enables transaction processing)
+	acceptFrags uint32 // Flag whether we're considered synchronised (enables fragment processing)
 
 	checkpointNumber uint64      // Block number for the sync progress validator to cross reference
 	checkpointHash   common.Hash // Block hash for the sync progress validator to cross reference
@@ -410,10 +411,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			// flag=1 means decode success
 			if flag == 1 {
 				var tx *types.Transaction
-				err = rlp.DecodeBytes(res, &tx)
-				if tx == nil {
-					return errResp(ErrDecode, "transaction %d is nil", i)
-				}
+				err = rlp.DecodeBytes(res, tx)
 				p.MarkTransaction(tx.Hash())
 				txs := make([]*types.Transaction, 1)
 				txs[0] = tx
