@@ -30,8 +30,9 @@ import (
 //}
 
 const (
-	Primitive     = 0x11d
-	EccSymbol     = 160
+	Primitive = 0x11d
+	EccSymbol = 160
+	NumSymbol = 40
 )
 
 func IntToUint8(n int) uint8 {

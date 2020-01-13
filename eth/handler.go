@@ -948,6 +948,7 @@ func (pm *ProtocolManager) BlockToFragments(block *types.Block) (*reedsolomon.Fr
 	rs := &reedsolomon.RSCodec{
 		Primitive:  reedsolomon.Primitive,
 		EccSymbols: reedsolomon.EccSymbol,
+		NumSymbols: reedsolomon.NumSymbol,
 	}
 	var td *big.Int
 	if parent := pm.blockchain.GetBlock(block.ParentHash(), block.NumberU64()-1); parent != nil {
