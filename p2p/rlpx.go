@@ -693,7 +693,7 @@ func (rw *rlpxFrameRW) ReadMsg() (msg Msg, err error) {
 	msg.meterSize = msg.Size
 	msg.Payload = content
 
-	fmt.Printf("\n p2p::rlpxFrameRW::ReadMsg msg.Size msg.Payload %x. \n\n", msg.Size)
+	fmt.Printf("\n p2p::rlpxFrameRW::ReadMsg msg.Size %d. \n\n", msg.Size)
 
 	// if snappy is enabled, verify and decompress message
 	if rw.snappy {
