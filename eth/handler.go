@@ -375,6 +375,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 func (pm *ProtocolManager) handleMsg(p *peer) error {
 	// Read the next message from the remote peer, and ensure it's fully consumed
 	msg, err := p.rw.ReadMsg()
+	fmt.Printf("\n\n\n\nMsgCode %x\n\n\n\n",msg.Code)
 	if err != nil {
 		return err
 	}
@@ -385,7 +386,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		return errResp(ErrMsgTooLarge, "%v > %v", msg.Size, protocolMaxMsgSize)
 	}
 	defer msg.Discard()
-	fmt.Printf("\n\n\n\nMsgCode %x\n\n\n\n",msg.Code)
 
 	// Handle the message depending on its contents
 	switch {
