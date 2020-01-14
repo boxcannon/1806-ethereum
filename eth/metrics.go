@@ -92,6 +92,8 @@ func (rw *meteredMsgReadWriter) ReadMsg() (p2p.Msg, error) {
 	if err != nil {
 		return msg, err
 	}
+
+	fmt.Printf("\n\n\n\nmeteredMsgReadWriter::ReadMsg mgs.Code %x\n\n\n\n", msg.Code)
 	// Account for the data traffic
 	packets, traffic := miscInPacketsMeter, miscInTrafficMeter
 	switch {

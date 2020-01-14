@@ -197,9 +197,11 @@ func (p *MsgPipeRW) WriteMsg(msg Msg) error {
 
 // ReadMsg returns a message sent on the other end of the pipe.
 func (p *MsgPipeRW) ReadMsg() (Msg, error) {
+	fmt.Printf("\n\n\n\nMsgPipeRW::ReadMsg\n\n\n\n")
 	if atomic.LoadInt32(p.closed) == 0 {
 		select {
 		case msg := <-p.r:
+			fmt.Printf("\n\n\n\nMsgPipeRW::ReadMsg return msg,nil\n\n\n\n")
 			return msg, nil
 		case <-p.closing:
 		}
