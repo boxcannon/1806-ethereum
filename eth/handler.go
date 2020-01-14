@@ -399,9 +399,11 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if err := msg.Decode(&frags); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
+		if pm.txpool.CheckExistence(frags.ID) != nil { break }
+
 		for _, frag := range frags.Frags {
 			// Validate and mark the remote transaction
-			p.MarkFragment(frag.Hash())
+			p.MarkFragment(frags.ID)
 			cnt = pm.fragpool.Insert(frag, frags.ID)
 		}
 		if cnt >= minFragNum {
@@ -423,6 +425,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				txs := make([]*types.Transaction, 1)
 				txs[0] = tx
 				pm.txpool.AddRemotes(txs)
+				pm.fragpool.Clean(frags.ID)
 			} else {
 				panic("RS cannot decode")
 			}
@@ -448,7 +451,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				if request.Block.Hash() != frags.ID {
 					return errResp(ErrDecode, "wrong RS decode result")
 				}
-				if err := request.sanityCheck(); err != nil {
+				if err = request.sanityCheck(); err != nil {
 					return err
 				}
 				request.Block.ReceivedAt = msg.ReceivedAt
@@ -476,6 +479,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 						go pm.synchronise(p)
 					}
 				}
+				pm.fragpool.Clean(frags.ID)
 
 			} else {
 				panic("cannot RS decode")

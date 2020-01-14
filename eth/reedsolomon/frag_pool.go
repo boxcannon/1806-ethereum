@@ -14,13 +14,15 @@ type FragPool struct {
 	sync.Mutex
 	queue map[common.Hash]*FragNode
 	cnt   map[common.Hash]uint16
+	trial map[common.Hash]uint8
 }
 
 func NewFragPool() *FragPool {
 	return &FragPool{
 		Mutex: sync.Mutex{},
-		queue:   make(map[common.Hash]*FragNode, 0),
-		cnt:     make(map[common.Hash]uint16, 0),
+		queue:	make(map[common.Hash]*FragNode, 0),
+		cnt:    make(map[common.Hash]uint16, 0),
+		trial:	make(map[common.Hash]uint8, 0),
 	}
 }
 

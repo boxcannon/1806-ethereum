@@ -393,6 +393,13 @@ func (pool *TxPool) Stop() {
 	log.Info("Transaction pool stopped")
 }
 
+func (pool *TxPool) CheckExistence(hash common.Hash) *types.Transaction {
+	pool.all.lock.RLock()
+	defer pool.all.lock.RUnlock()
+
+	return pool.all.all[hash]
+}
+
 // SubscribeNewTxsEvent registers a subscription of NewTxsEvent and
 // starts sending event to the given channel.
 func (pool *TxPool) SubscribeNewTxsEvent(ch chan<- NewTxsEvent) event.Subscription {
