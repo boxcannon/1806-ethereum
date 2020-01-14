@@ -994,9 +994,6 @@ func (pm *ProtocolManager) TxToFragments(tx *types.Transaction) *reedsolomon.Fra
 	id := tx.Hash()
 	rlpCode, _ := rlp.EncodeToBytes(tx)
 	frags := rs.DivideAndEncode(rlpCode)
-	for _,frag := frags{
-		fmt.Printf()
-	}
 	tmp := reedsolomon.NewFragments(0)
 	tmp.ID = id
 	for _, frag := range frags {
