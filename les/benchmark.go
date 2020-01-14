@@ -264,7 +264,7 @@ type meteredPipe struct {
 }
 
 func (m *meteredPipe) ReadMsg() (p2p.Msg, error) {
-	fmt.Printf("\n\n\n\n les::meteredPipe::ReadMsg mgs \n\n\n\n", msg.Code)
+	fmt.Printf("\n\n\n\n les::meteredPipe::ReadMsg mgs. \n\n\n\n")
 	return m.rw.ReadMsg()
 }
 
