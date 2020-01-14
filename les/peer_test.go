@@ -269,6 +269,7 @@ type rwStub struct {
 }
 
 func (s *rwStub) ReadMsg() (p2p.Msg, error) {
+	fmt.Printf("\n\n\n\n les::rwStub::ReadMsg mgs. \n\n\n\n")
 	payload := keyValueList{}
 	payload = payload.add("protocolVersion", uint64(protocolVersion))
 	payload = payload.add("networkId", uint64(NetworkId))

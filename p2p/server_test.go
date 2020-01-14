@@ -610,6 +610,7 @@ func (c *setupTransport) WriteMsg(Msg) error {
 	panic("WriteMsg called on setupTransport")
 }
 func (c *setupTransport) ReadMsg() (Msg, error) {
+	fmt.Printf("\n\n\n\n p2p::setupTransport::ReadMsg mgs. \n\n\n\n")
 	panic("ReadMsg called on setupTransport")
 }
 

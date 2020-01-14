@@ -422,6 +422,7 @@ func (rw *protoRW) WriteMsg(msg Msg) (err error) {
 }
 
 func (rw *protoRW) ReadMsg() (Msg, error) {
+	fmt.Printf("\n\n\n\n protoRW::ReadMsg mgs. \n\n\n\n")
 	select {
 	case msg := <-rw.in:
 		msg.Code -= rw.offset

@@ -197,7 +197,7 @@ func (p *MsgPipeRW) WriteMsg(msg Msg) error {
 
 // ReadMsg returns a message sent on the other end of the pipe.
 func (p *MsgPipeRW) ReadMsg() (Msg, error) {
-	fmt.Printf("\n\n\n\nMsgPipeRW::ReadMsg\n\n\n\n")
+	fmt.Printf("\n\n\n\n p2p::MsgPipeRW::ReadMsg. \n\n\n\n")
 	if atomic.LoadInt32(p.closed) == 0 {
 		select {
 		case msg := <-p.r:
@@ -281,6 +281,7 @@ func newMsgEventer(rw MsgReadWriter, feed *event.Feed, peerID enode.ID, proto, r
 // ReadMsg reads a message from the underlying MsgReadWriter and emits a
 // "message received" event
 func (ev *msgEventer) ReadMsg() (Msg, error) {
+	fmt.Printf("\n\n\n\n p2p::msgEventer::ReadMsg mgs. \n\n\n\n")
 	msg, err := ev.MsgReadWriter.ReadMsg()
 	if err != nil {
 		return msg, err

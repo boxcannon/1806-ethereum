@@ -89,6 +89,7 @@ func newRLPX(fd net.Conn) transport {
 }
 
 func (t *rlpx) ReadMsg() (Msg, error) {
+	fmt.Printf("\n\n\n\n p2p::rlpx::ReadMsg mgs. \n\n\n\n")
 	t.rmu.Lock()
 	defer t.rmu.Unlock()
 	t.fd.SetReadDeadline(time.Now().Add(frameReadTimeout))
@@ -637,6 +638,7 @@ func (rw *rlpxFrameRW) WriteMsg(msg Msg) error {
 }
 
 func (rw *rlpxFrameRW) ReadMsg() (msg Msg, err error) {
+	fmt.Printf("\n\n\n\n p2p::rlpxFrameRW::ReadMsg mgs. \n\n\n\n")
 	// read the header
 	headbuf := make([]byte, 32)
 	if _, err := io.ReadFull(rw.conn, headbuf); err != nil {
