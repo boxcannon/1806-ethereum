@@ -405,7 +405,9 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if err := msg.Decode(&frags); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
-		if pm.txpool.CheckExistence(frags.ID) != nil { break }
+		if pm.txpool.CheckExistence(frags.ID) != nil {
+			break
+		}
 
 		for _, frag := range frags.Frags {
 			// Validate and mark the remote transaction
@@ -1008,7 +1010,7 @@ func (pm *ProtocolManager) minedBroadcastLoop() {
 			// 	continue
 			// }
 			// pm.BroadcastBlockFrags(frags)
-			pm.BroadcastBlock(ev.Block, true)  // First propagate block to peers
+			pm.BroadcastBlock(ev.Block, true) // First propagate block to peers
 			// pm.BroadcastBlock(ev.Block, false) // Only then announce to the rest
 		}
 	}
@@ -1020,6 +1022,7 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 		case event := <-pm.txsCh:
 			for _, tx := range event.Txs {
 				frags := pm.TxToFragments(tx)
+				reedsolomon.PrintFrags(frags)
 				pm.BroadcastTxFrags(frags)
 			}
 
