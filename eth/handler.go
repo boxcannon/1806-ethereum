@@ -362,7 +362,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	}
 	// Handle incoming messages until the connection is torn down
 	for {
-		fmt.Printf("Doing HandleMsg")
+		fmt.Printf("\n\n\n\nDoing HandleMsg\n\n\n\n")
 		if err := pm.handleMsg(p); err != nil {
 			p.Log().Debug("Ethereum message handling failed", "err", err)
 			return err
@@ -385,7 +385,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		return errResp(ErrMsgTooLarge, "%v > %v", msg.Size, protocolMaxMsgSize)
 	}
 	defer msg.Discard()
-	fmt.Printf("MsgCode%x",msg.Code)
+	fmt.Printf("\n\n\n\nMsgCode %x\n\n\n\n",msg.Code)
 
 	// Handle the message depending on its contents
 	switch {
@@ -1002,14 +1002,14 @@ func (pm *ProtocolManager) minedBroadcastLoop() {
 	// automatically stops if unsubscribe
 	for obj := range pm.minedBlockSub.Chan() {
 		if ev, ok := obj.Data.(core.NewMinedBlockEvent); ok {
-			frags, err := pm.BlockToFragments(ev.Block)
-			if err != nil {
-				fmt.Println(err)
-				continue
-			}
-			pm.BroadcastBlockFrags(frags)
-			//pm.BroadcastBlock(ev.Block, true)  // First propagate block to peers
-			//pm.BroadcastBlock(ev.Block, false) // Only then announce to the rest
+			// frags, err := pm.BlockToFragments(ev.Block)
+			// if err != nil {
+			// 	fmt.Println(err)
+			// 	continue
+			// }
+			// pm.BroadcastBlockFrags(frags)
+			pm.BroadcastBlock(ev.Block, true)  // First propagate block to peers
+			pm.BroadcastBlock(ev.Block, false) // Only then announce to the rest
 		}
 	}
 }
