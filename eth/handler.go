@@ -70,9 +70,8 @@ type ProtocolManager struct {
 	networkID  uint64
 	forkFilter forkid.Filter // Fork ID filter, constant across the lifetime of the node
 
-	fastSync    uint32 // Flag whether fast sync is enabled (gets disabled if we already have blocks)
-	acceptTxs   uint32 // Flag whether we're considered synchronised (enables transaction processing)
-	acceptFrags uint32 // Flag whether we're considered synchronised (enables fragment processing)
+	fastSync  uint32 // Flag whether fast sync is enabled (gets disabled if we already have blocks)
+	acceptTxs uint32 // Flag whether we're considered synchronised (enables transaction processing)
 
 	checkpointNumber uint64      // Block number for the sync progress validator to cross reference
 	checkpointHash   common.Hash // Block hash for the sync progress validator to cross reference
@@ -391,7 +390,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 	case msg.Code == TxFragMsg:
 		// Frags arrived, make sure we have a valid and fresh chain to handle them
-		if atomic.LoadUint32(&pm.acceptFrags) == 0 {
+		if atomic.LoadUint32(&pm.acceptTxs) == 0 {
 			break
 		}
 		// Transaction fragments can be processed, parse all of them and deliver to the pool
@@ -912,7 +911,7 @@ func (pm *ProtocolManager) BroadcastTxFrags(frags *reedsolomon.Fragments) {
 			}
 			fragset[peer] = append(fragset[peer], frag)
 		}
-		log.Trace("Broadcast block fragments", "hash", frag.Hash(), "recipients", len(peers))
+		log.Trace("Broadcalist block fragments", "hash", frag.Hash(), "recipients", len(peers))
 	}
 	for peer, frag := range fragset {
 		toSendFrags := reedsolomon.NewFragments(0)
@@ -993,14 +992,14 @@ func (pm *ProtocolManager) minedBroadcastLoop() {
 	// automatically stops if unsubscribe
 	for obj := range pm.minedBlockSub.Chan() {
 		if ev, ok := obj.Data.(core.NewMinedBlockEvent); ok {
-			frags, err := pm.BlockToFragments(ev.Block)
-			if err != nil {
-				fmt.Println(err)
-				continue
-			}
-			pm.BroadcastBlockFrags(frags)
-			//pm.BroadcastBlock(ev.Block, true)  // First propagate block to peers
-			//pm.BroadcastBlock(ev.Block, false) // Only then announce to the rest
+			//frags, err := pm.BlockToFragments(ev.Block)
+			//if err != nil {
+			//	fmt.Println(err)
+			//	continue
+			//}
+			//pm.BroadcastBlockFrags(frags)
+			pm.BroadcastBlock(ev.Block, true)  // First propagate block to peers
+			pm.BroadcastBlock(ev.Block, false) // Only then announce to the rest
 		}
 	}
 }

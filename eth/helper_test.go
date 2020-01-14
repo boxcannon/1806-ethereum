@@ -216,3 +216,7 @@ func (p *testPeer) handshake(t *testing.T, td *big.Int, head common.Hash, genesi
 func (p *testPeer) close() {
 	p.app.Close()
 }
+
+func (t *testing.T) TestBroadcastTx() {
+
+}

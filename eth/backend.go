@@ -472,7 +472,6 @@ func (s *Ethereum) StartMining(threads int) error {
 		// If mining is started, we can disable the transaction rejection mechanism
 		// introduced to speed sync times.
 		atomic.StoreUint32(&s.protocolManager.acceptTxs, 1)
-		atomic.StoreUint32(&s.protocolManager.acceptFrags, 1)
 
 		go s.miner.Start(eb)
 	}
