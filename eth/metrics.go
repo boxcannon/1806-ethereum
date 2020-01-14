@@ -26,6 +26,14 @@ var (
 	propTxnInTrafficMeter     = metrics.NewRegisteredMeter("eth/prop/txns/in/traffic", nil)
 	propTxnOutPacketsMeter    = metrics.NewRegisteredMeter("eth/prop/txns/out/packets", nil)
 	propTxnOutTrafficMeter    = metrics.NewRegisteredMeter("eth/prop/txns/out/traffic", nil)
+	propTxFragInPacketsMeter = metrics.NewRegisteredMeter("eth/prop/txfrags/in/packets", nil)
+	propTxFragInTrafficMeter = metrics.NewRegisteredMeter("eth/prop/txfrags/in/traffic", nil)
+	propTxFragOutPacketsMeter = metrics.NewRegisteredMeter("eth/prop/txfrags/out/packets", nil)
+	propTxFragOutTrafficMeter = metrics.NewRegisteredMeter("eth/prop/txfrags/out/traffic", nil)
+	propBlockFragInPacketsMeter = metrics.NewRegisteredMeter("eth/prop/blockfrags/in/packets", nil)
+	propBlockFragInTrafficMeter = metrics.NewRegisteredMeter("eth/prop/blockfrags/in/traffic", nil)
+	propBlockFragOutPacketsMeter = metrics.NewRegisteredMeter("eth/prop/blockfrags/out/packets", nil)
+	propBlockFragOutTrafficMeter = metrics.NewRegisteredMeter("eth/prop/blockfrags/out/traffic", nil)
 	propHashInPacketsMeter    = metrics.NewRegisteredMeter("eth/prop/hashes/in/packets", nil)
 	propHashInTrafficMeter    = metrics.NewRegisteredMeter("eth/prop/hashes/in/traffic", nil)
 	propHashOutPacketsMeter   = metrics.NewRegisteredMeter("eth/prop/hashes/out/packets", nil)
@@ -103,6 +111,10 @@ func (rw *meteredMsgReadWriter) ReadMsg() (p2p.Msg, error) {
 		packets, traffic = propBlockInPacketsMeter, propBlockInTrafficMeter
 	case msg.Code == TxMsg:
 		packets, traffic = propTxnInPacketsMeter, propTxnInTrafficMeter
+	case msg.Code == TxFragMsg:
+		packets, traffic = propTxFragInPacketsMeter, propTxFragInTrafficMeter
+	case msg.Code == BlockFragMsg:
+		packets, traffic = propBlockFragInPacketsMeter, propBlockFragInTrafficMeter
 	}
 	packets.Mark(1)
 	traffic.Mark(int64(msg.Size))
@@ -130,6 +142,10 @@ func (rw *meteredMsgReadWriter) WriteMsg(msg p2p.Msg) error {
 		packets, traffic = propBlockOutPacketsMeter, propBlockOutTrafficMeter
 	case msg.Code == TxMsg:
 		packets, traffic = propTxnOutPacketsMeter, propTxnOutTrafficMeter
+	case msg.Code == TxFragMsg:
+		packets, traffic = propTxFragOutPacketsMeter, propTxFragOutPacketsMeter
+	case msg.Code == BlockFragMsg:
+		packets, traffic = propBlockFragOutPacketsMeter, propBlockFragOutPacketsMeter
 	}
 	packets.Mark(1)
 	traffic.Mark(int64(msg.Size))

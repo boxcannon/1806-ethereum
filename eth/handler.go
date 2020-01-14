@@ -70,8 +70,13 @@ type ProtocolManager struct {
 	networkID  uint64
 	forkFilter forkid.Filter // Fork ID filter, constant across the lifetime of the node
 
+<<<<<<< HEAD
+	fastSync    uint32 // Flag whether fast sync is enabled (gets disabled if we already have blocks)
+	acceptTxs   uint32 // Flag whether we're considered synchronised (enables transaction processing)
+=======
 	fastSync  uint32 // Flag whether fast sync is enabled (gets disabled if we already have blocks)
 	acceptTxs uint32 // Flag whether we're considered synchronised (enables transaction processing)
+>>>>>>> 57420db5ed2ac83607dda2f605e0fb658d15cb3b
 
 	checkpointNumber uint64      // Block number for the sync progress validator to cross reference
 	checkpointHash   common.Hash // Block hash for the sync progress validator to cross reference
@@ -377,6 +382,9 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	if err != nil {
 		return err
 	}
+	if msg.Code == TxFragMsg {
+		fmt.Printf("Message Received \n\n\n\n\n\n\n\n\n")
+	}
 	if msg.Size > protocolMaxMsgSize {
 		return errResp(ErrMsgTooLarge, "%v > %v", msg.Size, protocolMaxMsgSize)
 	}
@@ -389,6 +397,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		return errResp(ErrExtraStatusMsg, "uncontrolled status message")
 
 	case msg.Code == TxFragMsg:
+		fmt.Printf("fragment received\n\n\n\n\n\n\n")
 		// Frags arrived, make sure we have a valid and fresh chain to handle them
 		if atomic.LoadUint32(&pm.acceptTxs) == 0 {
 			break
@@ -905,8 +914,7 @@ func (pm *ProtocolManager) BroadcastTxs(txs types.Transactions) {
 
 func (pm *ProtocolManager) BroadcastTxFrags(frags *reedsolomon.Fragments) {
 	var fragset = make(map[*peer][]*reedsolomon.Fragment)
-
-	// Broadcast transactions to a batch of peers not knowing about it
+	//Broadcast transactions to a batch of peers not knowing about it
 	for _, frag := range frags.Frags {
 		peers := pm.peers.PeersWithoutTxFrag(frag.Hash())
 		for _, peer := range peers {
@@ -917,11 +925,12 @@ func (pm *ProtocolManager) BroadcastTxFrags(frags *reedsolomon.Fragments) {
 		}
 		log.Trace("Broadcalist block fragments", "hash", frag.Hash(), "recipients", len(peers))
 	}
-	for peer, frag := range fragset {
-		toSendFrags := reedsolomon.NewFragments(0)
-		toSendFrags.ID = frags.ID
-		toSendFrags.Frags = frag
-		peer.AsyncSendTxFrags(toSendFrags)
+	for peer, _ := range fragset {
+		//toSendFrags := reedsolomon.NewFragments(0)
+		//toSendFrags.ID = frags.ID
+		//toSendFrags.Frags = frag
+		//peer.AsyncSendTxFrags(toSendFrags)
+		peer.AsyncSendTxFrags(frags)
 	}
 }
 
