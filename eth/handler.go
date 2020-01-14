@@ -1008,7 +1008,7 @@ func (pm *ProtocolManager) minedBroadcastLoop() {
 			// 	continue
 			// }
 			// pm.BroadcastBlockFrags(frags)
-			pm.BroadcastBlock(ev.Block, true)  // First propagate block to peers
+			// pm.BroadcastBlock(ev.Block, true)  // First propagate block to peers
 			pm.BroadcastBlock(ev.Block, false) // Only then announce to the rest
 		}
 	}
