@@ -89,9 +89,9 @@ func (rw *meteredMsgReadWriter) Init(version int) {
 
 func (rw *meteredMsgReadWriter) ReadMsg() (p2p.Msg, error) {
 	fmt.Printf("\n\n\n\n eth::meteredMsgReadWriter::ReadMsg mgs. \n\n\n\n")
-	fmt.Printf("\n\n\n\n eth::meteredMsgReadWriter::mgs.Code %x \n\n\n\n", msg.Code)
 	// Read the message and short circuit in case of an error
 	msg, err := rw.MsgReadWriter.ReadMsg()
+	fmt.Printf("\n\n\n\n eth::meteredMsgReadWriter::msg.Code %x \n\n\n\n", msg.Code)
 	if err != nil {
 		return msg, err
 	}
