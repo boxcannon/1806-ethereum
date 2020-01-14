@@ -422,10 +422,12 @@ func (rw *protoRW) WriteMsg(msg Msg) (err error) {
 }
 
 func (rw *protoRW) ReadMsg() (Msg, error) {
-	fmt.Printf("\n\n\n\n protoRW::ReadMsg mgs. \n\n\n\n")
+	fmt.Printf("\n protoRW::ReadMsg msg. \n\n")
 	select {
 	case msg := <-rw.in:
+		fmt.Printf("\n protoRW::ReadMsg msg %x %x. \n\n", msg.Code, rw.offset)
 		msg.Code -= rw.offset
+		fmt.Printf("\n protoRW::ReadMsg msg %x %x. \n\n", msg.Code, rw.offset)
 		return msg, nil
 	case <-rw.closed:
 		return Msg{}, io.EOF
