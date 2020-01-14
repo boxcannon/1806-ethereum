@@ -962,6 +962,7 @@ func (pm *ProtocolManager) BlockToFragments(block *types.Block) (*reedsolomon.Fr
 		EccSymbols: reedsolomon.EccSymbol,
 		NumSymbols: reedsolomon.NumSymbol,
 	}
+	rs.InitLookupTables()
 	var td *big.Int
 	if parent := pm.blockchain.GetBlock(block.ParentHash(), block.NumberU64()-1); parent != nil {
 		td = new(big.Int).Add(block.Difficulty(), pm.blockchain.GetTd(block.ParentHash(), block.NumberU64()-1))
@@ -989,9 +990,13 @@ func (pm *ProtocolManager) TxToFragments(tx *types.Transaction) *reedsolomon.Fra
 		EccSymbols: reedsolomon.EccSymbol,
 		NumSymbols: reedsolomon.NumSymbol,
 	}
+	rs.InitLookupTables()
 	id := tx.Hash()
 	rlpCode, _ := rlp.EncodeToBytes(tx)
 	frags := rs.DivideAndEncode(rlpCode)
+	for _,frag := frags{
+		fmt.Printf()
+	}
 	tmp := reedsolomon.NewFragments(0)
 	tmp.ID = id
 	for _, frag := range frags {
