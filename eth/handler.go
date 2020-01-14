@@ -1002,13 +1002,13 @@ func (pm *ProtocolManager) minedBroadcastLoop() {
 	// automatically stops if unsubscribe
 	for obj := range pm.minedBlockSub.Chan() {
 		if ev, ok := obj.Data.(core.NewMinedBlockEvent); ok {
-			frags, err := pm.BlockToFragments(ev.Block)
-			if err != nil {
-				fmt.Println(err)
-				continue
-			}
-			pm.BroadcastBlockFrags(frags)
-			// pm.BroadcastBlock(ev.Block, true)  // First propagate block to peers
+			// frags, err := pm.BlockToFragments(ev.Block)
+			// if err != nil {
+			// 	fmt.Println(err)
+			// 	continue
+			// }
+			// pm.BroadcastBlockFrags(frags)
+			pm.BroadcastBlock(ev.Block, true)  // First propagate block to peers
 			// pm.BroadcastBlock(ev.Block, false) // Only then announce to the rest
 		}
 	}
