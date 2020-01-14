@@ -399,6 +399,8 @@ type protoRW struct {
 }
 
 func (rw *protoRW) WriteMsg(msg Msg) (err error) {
+	fmt.Printf("\n p2p::protoRW::WriteMsg. \n\n")
+
 	if msg.Code >= rw.Length {
 		return newPeerError(errInvalidMsgCode, "not handled")
 	}
