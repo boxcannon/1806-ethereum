@@ -405,6 +405,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if err := msg.Decode(&frags); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
+		reedsolomon.PrintFrags(frags)
 		if pm.txpool.CheckExistence(frags.ID) != nil {
 			break
 		}
