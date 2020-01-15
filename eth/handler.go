@@ -416,11 +416,16 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			cnt = pm.fragpool.Insert(frag, frags.ID)
 		}
 		if cnt >= minFragNum {
+			fmt.Printf("try decode Frags: \n")
+			reedsolomon.PrintFrags(frags)
+			fmt.Prinf("\n\n\n")
 			res, flag := pm.fragpool.TryDecode(frags.ID)
 			// flag=1 means decode success
+			fmt.Printf("\n\ntry decode Frags successful or not : %d\n\n", flag)
 			if flag == 1 {
 				var tx *types.Transaction
 				err = rlp.DecodeBytes(res, &tx)
+				fmt.Printf("rs decode successful, Transaction id is %X", tx.Hash())
 				if err != nil {
 					return err
 				}

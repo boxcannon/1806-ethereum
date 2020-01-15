@@ -98,7 +98,6 @@ func Send(w MsgWriter, msgcode uint64, data interface{}) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("\n p2p::Send size %d.\n\n", size)
 	return w.WriteMsg(Msg{Code: msgcode, Size: uint32(size), Payload: r})
 }
 
@@ -177,8 +176,6 @@ type MsgPipeRW struct {
 // WriteMsg sends a message on the pipe.
 // It blocks until the receiver has consumed the message payload.
 func (p *MsgPipeRW) WriteMsg(msg Msg) error {
-	fmt.Printf("\n p2p::MsgPipeRW::WriteMsg. \n\n")
-
 	if atomic.LoadInt32(p.closed) == 0 {
 		consumed := make(chan struct{}, 1)
 		msg.Payload = &eofSignal{msg.Payload, msg.Size, consumed}
@@ -200,11 +197,9 @@ func (p *MsgPipeRW) WriteMsg(msg Msg) error {
 
 // ReadMsg returns a message sent on the other end of the pipe.
 func (p *MsgPipeRW) ReadMsg() (Msg, error) {
-	fmt.Printf("\n\n\n\n p2p::MsgPipeRW::ReadMsg. \n\n\n\n")
 	if atomic.LoadInt32(p.closed) == 0 {
 		select {
 		case msg := <-p.r:
-			fmt.Printf("\n\n\n\nMsgPipeRW::ReadMsg return msg,nil\n\n\n\n")
 			return msg, nil
 		case <-p.closing:
 		}
@@ -284,7 +279,6 @@ func newMsgEventer(rw MsgReadWriter, feed *event.Feed, peerID enode.ID, proto, r
 // ReadMsg reads a message from the underlying MsgReadWriter and emits a
 // "message received" event
 func (ev *msgEventer) ReadMsg() (Msg, error) {
-	fmt.Printf("\n\n\n\n p2p::msgEventer::ReadMsg mgs. \n\n\n\n")
 	msg, err := ev.MsgReadWriter.ReadMsg()
 	if err != nil {
 		return msg, err
@@ -304,8 +298,6 @@ func (ev *msgEventer) ReadMsg() (Msg, error) {
 // WriteMsg writes a message to the underlying MsgReadWriter and emits a
 // "message sent" event
 func (ev *msgEventer) WriteMsg(msg Msg) error {
-	fmt.Printf("\n p2p::msgEventer::WriteMsg. \n\n")
-
 	err := ev.MsgReadWriter.WriteMsg(msg)
 	if err != nil {
 		return err
