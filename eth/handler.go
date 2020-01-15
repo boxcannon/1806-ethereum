@@ -437,9 +437,14 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				}
 				p.MarkTransaction(tx.Hash())
 				txs := make([]*types.Transaction, 0)
-				txs = append(txs, &tx)
+				txs = append(txs, tx)
 				fmt.Printf("txs first tx is: %x", txs[0].Hash())
-				pm.txpool.AddRemotes(txs)
+				errs := pm.txpool.AddRemotes(txs) // do not need
+				fmt.Printf("\n\n")
+				for _, err = range errs {
+					fmt.Println(err)
+				}
+				fmt.Printf("\n\n")
 				pm.fragpool.Clean(frags.ID)
 			} else {
 				panic("RS cannot decode")
