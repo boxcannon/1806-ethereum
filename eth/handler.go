@@ -418,7 +418,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if cnt >= minFragNum {
 			fmt.Printf("try decode Frags: \n")
 			reedsolomon.PrintFrags(frags)
-			fmt.Prinf("\n\n\n")
+			fmt.Printf("\n\n\n")
 			res, flag := pm.fragpool.TryDecode(frags.ID)
 			// flag=1 means decode success
 			fmt.Printf("\n\ntry decode Frags successful or not : %d\n\n", flag)
