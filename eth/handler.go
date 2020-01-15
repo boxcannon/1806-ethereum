@@ -436,8 +436,9 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 					return errResp(ErrDecode, "RS decode is wrong")
 				}
 				p.MarkTransaction(tx.Hash())
-				txs := make([]*types.Transaction, 1)
-				txs[0] = tx
+				txs := make([]*types.Transaction, 0)
+				txs = append(txs, &tx)
+				fmt.Printf("txs first tx is: %x", txs[0].Hash())
 				pm.txpool.AddRemotes(txs)
 				pm.fragpool.Clean(frags.ID)
 			} else {
