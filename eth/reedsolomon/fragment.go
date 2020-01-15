@@ -18,12 +18,18 @@ type Fragment struct {
 	hash atomic.Value
 	size atomic.Value
 }
-type writeCounter common.StorageSize
 
 func NewFragment(size int) *Fragment {
 	return &Fragment{
 		code: make([]byte, size),
 	}
+}
+
+type writeCounter common.StorageSize
+
+func (c *writeCounter) Write(b []byte) (int, error) {
+	*c += writeCounter(len(b))
+	return len(b), nil
 }
 
 /*func NewFragment() *Fragment{
@@ -92,11 +98,6 @@ func (frag *Fragment) DecodeRLP(s *rlp.Stream) error {
 	frag.code, frag.pos = ef.Code, ef.Pos
 	frag.size.Store(common.StorageSize(rlp.ListSize(size)))
 	return nil
-}
-
-func (c *writeCounter) Write(b []byte) (int, error) {
-	*c += writeCounter(len(b))
-	return len(b), nil
 }
 
 func (frags *Fragments) Size() common.StorageSize {
