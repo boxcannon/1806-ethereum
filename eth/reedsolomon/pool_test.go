@@ -33,7 +33,7 @@ func TestFragPool_TryDecode(t *testing.T) {
 		cnt = pool.Insert(frag, frags.ID)
 	}
 	fmt.Printf("%d fragments in pool\n", cnt)
-	res, flag := pool.TryDecode(frags.ID)
+	res, flag := pool.TryDecode(frags.ID, &rs)
 	fmt.Println(res)
 	// flag=1 means decode success
 	if flag == 1 {

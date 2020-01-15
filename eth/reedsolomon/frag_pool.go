@@ -10,17 +10,27 @@ type FragNode struct {
 	Next    *FragNode
 }
 
-type FragPool struct {
+type FragLine struct {
 	sync.Mutex
-	queue map[common.Hash]*FragNode
+	head *FragNode
+}
+
+type FragPool struct {
+	load  map[common.Hash]*FragLine
 	cnt   map[common.Hash]uint16
 	trial map[common.Hash]uint8
 }
 
+func NewFragLine(newNode *FragNode) *FragLine{
+	return &FragLine {
+		Mutex: sync.Mutex{},
+		head:  newNode,
+	}
+}
+
 func NewFragPool() *FragPool {
 	return &FragPool{
-		Mutex: sync.Mutex{},
-		queue:	make(map[common.Hash]*FragNode, 0),
+		load:	make(map[common.Hash]*FragLine, 0),
 		cnt:    make(map[common.Hash]uint16, 0),
 		trial:	make(map[common.Hash]uint8, 0),
 	}
@@ -28,8 +38,9 @@ func NewFragPool() *FragPool {
 
 // urge GC to collect garbage
 func (pool *FragPool) Stop() {
-	pool.queue = make(map[common.Hash]*FragNode, 0)
-	pool.cnt = make(map[common.Hash]uint16, 0)
+	pool.load = nil
+	pool.cnt = nil
+	pool.trial = nil
 }
 
 // Insert a new fragment into pool
@@ -41,21 +52,23 @@ func (pool *FragPool) Insert(frag *Fragment, idx common.Hash) uint16 {
 	}
 	insPos := idx
 	flag := true
-	pool.Lock()
-	defer pool.Unlock()
-	// first frag in the queue
-	if _, flag := pool.queue[insPos]; !flag {
-		pool.queue[insPos] = tmp
+	// create new line
+	if _, flag := pool.load[insPos]; !flag {
+		pool.load[insPos] = NewFragLine(tmp)
+		pool.cnt[insPos] = 0
+		pool.trial[insPos] = 0
 	} else {
-		p := pool.queue[insPos]
+		pool.load[insPos].Lock()
+		defer pool.load[insPos].Unlock()
+		p := pool.load[insPos].head
 		if tmp.Content.pos < p.Content.pos {
-			pool.queue[insPos] = tmp
+			pool.load[insPos].head = tmp
 			tmp.Next = p
 		} else {
 			//fmt.Printf("Try to walk list\n")
 			for ; p.Next != nil; p = p.Next {
 				//already has this block
-				if tmp.Content.pos == p.Next.Content.pos{
+				if tmp.Content.pos == p.Next.Content.pos {
 					flag = false
 					break
 				}
@@ -63,39 +76,31 @@ func (pool *FragPool) Insert(frag *Fragment, idx common.Hash) uint16 {
 					break
 				}
 			}
-			if flag{
+			if flag {
 				tmp.Next = p.Next
 				p.Next = tmp
 			}
 		}
 	}
-	//fmt.Printf("Insertion ends here\n")
-	if flag{
-		pool.cnt[insPos]++
-	}
+	if flag { pool.cnt[insPos]++ }
 	return pool.cnt[insPos]
 }
 
 func (pool *FragPool) Clean(pos common.Hash) {
-	pool.cnt[pos] = 0
-	pool.queue[pos] = nil
+	delete(pool.load, pos)
+	delete(pool.cnt, pos)
+	delete(pool.trial, pos)
 }
 
-func (pool *FragPool) TryDecode(pos common.Hash) ([]byte, int) {
-	rs := RSCodec{
-		Primitive:  Primitive,
-		EccSymbols: EccSymbol,
-		NumSymbols: NumSymbol,
-	}
-	rs.InitLookupTables()
+func (pool *FragPool) TryDecode(pos common.Hash, rs *RSCodec) ([]byte, int) {
 
 	data := make([]*Fragment, 0)
-	pool.Lock()
-	p := pool.queue[pos]
+	pool.load[pos].Lock()
+	p := pool.load[pos].head
 	for ; p != nil; p = p.Next {
 		data = append(data, p.Content)
 	}
-	pool.Unlock()
+	pool.load[pos].Unlock()
 	res, flag := rs.SpliceAndDecode(data)
 	return res, flag
 }
