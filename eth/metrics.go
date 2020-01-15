@@ -19,7 +19,6 @@ package eth
 import (
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/p2p"
-	"fmt"
 )
 
 var (
