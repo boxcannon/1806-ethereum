@@ -1,5 +1,7 @@
 package reedsolomon
 
+import "log"
+
 func (r *RSCodec) DivideAndEncode(bytedata []byte) []*Fragment {
 	bytedata = append(bytedata, 1)
 	lenData := len(bytedata)
@@ -36,6 +38,10 @@ func (r *RSCodec) SpliceAndDecode(dataCode []*Fragment) ([]byte, int) {
 	for i := 0; i < dataLen; i++ {
 		pos := dataCode[i].pos
 		for j := 0; j < m; j++ {
+			if flag[pos] == 1 && tmp[j][pos] != int(dataCode[i].code[j]) {
+				log.Println("Fragments with the same position are received twice and they are different.")
+				return nil, 0
+			}
 			tmp[j][pos] = int(dataCode[i].code[j])
 		}
 		flag[pos] = 1
@@ -48,11 +54,13 @@ func (r *RSCodec) SpliceAndDecode(dataCode []*Fragment) ([]byte, int) {
 	}
 	tmpRes := make([][]int, m)
 	var ret []byte
-	succ, succ_t := 1, 1
 	var littleEndian = IsLittleEndian()
 	for j := 0; j < m; j++ {
-		tmpRes[j], _, succ_t = r.Decode(tmp[j], errPos)
-		succ &= succ_t
+		sucTmp := 1
+		tmpRes[j], _, sucTmp = r.Decode(tmp[j], errPos)
+		if sucTmp == 0 {
+			return nil, 0
+		}
 		for _, i := range tmpRes[j] {
 			if littleEndian {
 				ret = append(ret, IntToBytes(i)[7])
@@ -64,9 +72,9 @@ func (r *RSCodec) SpliceAndDecode(dataCode []*Fragment) ([]byte, int) {
 	retLen := len(ret)
 	i := retLen - 1
 	for ; i >= 0; i-- {
-		if ret[i] == 1 {
+		if ret != nil && ret[i] == 1 {
 			break
 		}
 	}
-	return ret[0:i], succ
+	return ret[0:i], 1
 }

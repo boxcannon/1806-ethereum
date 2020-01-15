@@ -18,6 +18,7 @@ package eth
 
 import (
 	"fmt"
+	"github.com/ethereum/go-ethereum/eth/reedsolomon"
 	"io"
 	"math/big"
 
@@ -182,6 +183,11 @@ func (hn *hashOrNumber) DecodeRLP(s *rlp.Stream) error {
 // newBlockData is the network packet for the block propagation message.
 type newBlockData struct {
 	Block *types.Block
+	TD    *big.Int
+}
+
+type newBlockFragData struct {
+	Frags *reedsolomon.Fragments
 	TD    *big.Int
 }
 

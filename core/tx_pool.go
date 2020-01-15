@@ -772,6 +772,7 @@ func (pool *TxPool) AddRemote(tx *types.Transaction) error {
 
 // addTxs attempts to queue a batch of transactions if they are valid.
 func (pool *TxPool) addTxs(txs []*types.Transaction, local, sync bool) []error {
+	fmt.Printf("\n\n addTxs id:%x \n\n", txs[0].Hash())
 	// Filter out known ones without obtaining the pool lock or recovering signatures
 	var (
 		errs = make([]error, len(txs))
@@ -787,12 +788,14 @@ func (pool *TxPool) addTxs(txs []*types.Transaction, local, sync bool) []error {
 		// Accumulate all unknown transactions for deeper processing
 		news = append(news, tx)
 	}
+	fmt.Printf("length of news : %d\n",len(news))
 	if len(news) == 0 {
 		return errs
 	}
 	// Cache senders in transactions before obtaining lock (pool.signer is immutable)
 	for _, tx := range news {
 		types.Sender(pool.signer, tx)
+		fmt.Printf("hash of tx is : %x\n",tx.Hash())
 	}
 	// Process all the new transaction and merge any errors into the original slice
 	pool.mu.Lock()
