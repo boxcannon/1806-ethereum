@@ -108,7 +108,7 @@ type ProtocolManager struct {
 // NewProtocolManager returns a new Ethereum sub protocol manager. The Ethereum sub protocol manages peers capable
 // with the Ethereum network.
 func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCheckpoint, mode downloader.SyncMode, networkID uint64,
-	mux *event.TypeMux, fragpool *reedsolomon.FragPool, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain,
+	mux *event.TypeMux, rs *reedsolomon.RSCodec, fragpool *reedsolomon.FragPool, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain,
 	chaindb ethdb.Database, cacheLimit int, whitelist map[uint64]common.Hash) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
@@ -116,6 +116,7 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 		forkFilter:  forkid.NewFilter(blockchain),
 		eventMux:    mux,
 		txpool:      txpool,
+		rs:			 rs,
 		fragpool:    fragpool,
 		blockchain:  blockchain,
 		peers:       newPeerSet(),
