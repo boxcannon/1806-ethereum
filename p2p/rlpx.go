@@ -89,7 +89,6 @@ func newRLPX(fd net.Conn) transport {
 }
 
 func (t *rlpx) ReadMsg() (Msg, error) {
-	fmt.Printf("\n p2p::rlpx::ReadMsg msg. \n\n")
 	t.rmu.Lock()
 	defer t.rmu.Unlock()
 	t.fd.SetReadDeadline(time.Now().Add(frameReadTimeout))
@@ -97,7 +96,6 @@ func (t *rlpx) ReadMsg() (Msg, error) {
 }
 
 func (t *rlpx) WriteMsg(msg Msg) error {
-	fmt.Printf("\n p2p::rlpx::WriteMsg. \n\n")
 	t.wmu.Lock()
 	defer t.wmu.Unlock()
 	t.fd.SetWriteDeadline(time.Now().Add(frameWriteTimeout))
@@ -582,7 +580,6 @@ func newRLPXFrameRW(conn io.ReadWriter, s secrets) *rlpxFrameRW {
 }
 
 func (rw *rlpxFrameRW) WriteMsg(msg Msg) error {
-	fmt.Printf("\n p2p::rlpxFrame::WriteMsg. \n\n")
 
 	ptype, _ := rlp.EncodeToBytes(msg.Code)
 
@@ -641,18 +638,14 @@ func (rw *rlpxFrameRW) WriteMsg(msg Msg) error {
 }
 
 func (rw *rlpxFrameRW) ReadMsg() (msg Msg, err error) {
-	fmt.Printf("\n p2p::rlpxFrameRW::ReadMsg msg. \n\n")
-	fmt.Printf("\n p2p::rlpxFrameRW::ReadMsg msg %x. \n\n", msg.Code)
 	// read the header
 	headbuf := make([]byte, 32)
 	if _, err := io.ReadFull(rw.conn, headbuf); err != nil {
-		fmt.Printf("\n p2p::rlpxFrameRW::ReadMsg return 1 msg %x. \n\n", msg.Code)
 		return msg, err
 	}
 	// verify header mac
 	shouldMAC := updateMAC(rw.ingressMAC, rw.macCipher, headbuf[:16])
 	if !hmac.Equal(shouldMAC, headbuf[16:]) {
-		fmt.Printf("\n p2p::rlpxFrameRW::ReadMsg return 2 msg %x. \n\n", msg.Code)
 		return msg, errors.New("bad header MAC")
 	}
 	rw.dec.XORKeyStream(headbuf[:16], headbuf[:16]) // first half is now decrypted
@@ -666,7 +659,6 @@ func (rw *rlpxFrameRW) ReadMsg() (msg Msg, err error) {
 	}
 	framebuf := make([]byte, rsize)
 	if _, err := io.ReadFull(rw.conn, framebuf); err != nil {
-		fmt.Printf("\n p2p::rlpxFrameRW::ReadMsg return 3 msg %x. \n\n", msg.Code)
 		return msg, err
 	}
 
@@ -674,12 +666,10 @@ func (rw *rlpxFrameRW) ReadMsg() (msg Msg, err error) {
 	rw.ingressMAC.Write(framebuf)
 	fmacseed := rw.ingressMAC.Sum(nil)
 	if _, err := io.ReadFull(rw.conn, headbuf[:16]); err != nil {
-		fmt.Printf("\n p2p::rlpxFrameRW::ReadMsg return 4 msg %x. \n\n", msg.Code)
 		return msg, err
 	}
 	shouldMAC = updateMAC(rw.ingressMAC, rw.macCipher, fmacseed)
 	if !hmac.Equal(shouldMAC, headbuf[:16]) {
-		fmt.Printf("\n p2p::rlpxFrameRW::ReadMsg return 5 msg %x. \n\n", msg.Code)
 		return msg, errors.New("bad frame MAC")
 	}
 
@@ -689,39 +679,32 @@ func (rw *rlpxFrameRW) ReadMsg() (msg Msg, err error) {
 	// decode message code
 	content := bytes.NewReader(framebuf[:fsize])
 	if err := rlp.Decode(content, &msg.Code); err != nil {
-		fmt.Printf("\n p2p::rlpxFrameRW::ReadMsg return 6 msg %x. \n\n", msg.Code)
 		return msg, err
 	}
 	msg.Size = uint32(content.Len())
 	msg.meterSize = msg.Size
 	msg.Payload = content
 
-	fmt.Printf("\n p2p::rlpxFrameRW::ReadMsg msg.Size %d. \n\n", msg.Size)
 
 	// if snappy is enabled, verify and decompress message
 	if rw.snappy {
 		payload, err := ioutil.ReadAll(msg.Payload)
 		if err != nil {
-			fmt.Printf("\n p2p::rlpxFrameRW::ReadMsg return 7 msg %x. \n\n", msg.Code)
 			return msg, err
 		}
 		size, err := snappy.DecodedLen(payload)
 		if err != nil {
-			fmt.Printf("\n p2p::rlpxFrameRW::ReadMsg return 8 msg %x. \n\n", msg.Code)
 			return msg, err
 		}
 		if size > int(maxUint24) {
-			fmt.Printf("\n p2p::rlpxFrameRW::ReadMsg return 9 msg %x. \n\n", msg.Code)
 			return msg, errPlainMessageTooLarge
 		}
 		payload, err = snappy.Decode(nil, payload)
 		if err != nil {
-			fmt.Printf("\n p2p::rlpxFrameRW::ReadMsg return 10 msg %x. \n\n", msg.Code)
 			return msg, err
 		}
 		msg.Size, msg.Payload = uint32(size), bytes.NewReader(payload)
 	}
-	fmt.Printf("\n p2p::rlpxFrameRW::ReadMsg return 11 msg %x. \n\n", msg.Code)
 	return msg, nil
 }
 

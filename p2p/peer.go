@@ -399,8 +399,6 @@ type protoRW struct {
 }
 
 func (rw *protoRW) WriteMsg(msg Msg) (err error) {
-	fmt.Printf("\n p2p::protoRW::WriteMsg. \n\n")
-
 	if msg.Code >= rw.Length {
 		return newPeerError(errInvalidMsgCode, "not handled")
 	}
@@ -424,12 +422,9 @@ func (rw *protoRW) WriteMsg(msg Msg) (err error) {
 }
 
 func (rw *protoRW) ReadMsg() (Msg, error) {
-	fmt.Printf("\n protoRW::ReadMsg msg. \n\n")
 	select {
 	case msg := <-rw.in:
-		fmt.Printf("\n protoRW::ReadMsg msg %x %x. \n\n", msg.Code, rw.offset)
 		msg.Code -= rw.offset
-		fmt.Printf("\n protoRW::ReadMsg msg %x %x. \n\n", msg.Code, rw.offset)
 		return msg, nil
 	case <-rw.closed:
 		return Msg{}, io.EOF

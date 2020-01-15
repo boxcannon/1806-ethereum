@@ -88,10 +88,8 @@ func (rw *meteredMsgReadWriter) Init(version int) {
 }
 
 func (rw *meteredMsgReadWriter) ReadMsg() (p2p.Msg, error) {
-	fmt.Printf("\n\n\n\n eth::meteredMsgReadWriter::ReadMsg mgs. \n\n\n\n")
 	// Read the message and short circuit in case of an error
 	msg, err := rw.MsgReadWriter.ReadMsg()
-	fmt.Printf("\n\n\n\n eth::meteredMsgReadWriter::msg.Code %x \n\n\n\n", msg.Code)
 	if err != nil {
 		return msg, err
 	}
@@ -127,7 +125,6 @@ func (rw *meteredMsgReadWriter) ReadMsg() (p2p.Msg, error) {
 }
 
 func (rw *meteredMsgReadWriter) WriteMsg(msg p2p.Msg) error {
-	fmt.Printf("\n p2p::meteredMsgReadWriter::WriteMsg. \n")
 	// Account for the data traffic
 	packets, traffic := miscOutPacketsMeter, miscOutTrafficMeter
 	switch {

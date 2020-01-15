@@ -19,7 +19,6 @@ package les
 import (
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/p2p"
-	"fmt"
 )
 
 var (
@@ -127,7 +126,6 @@ func newMeteredMsgWriter(rw p2p.MsgReadWriter, version int) p2p.MsgReadWriter {
 }
 
 func (rw *meteredMsgReadWriter) ReadMsg() (p2p.Msg, error) {
-	fmt.Printf("\n\n\n\n les::meteredMsgReadWriter::ReadMsg mgs. \n\n\n\n")
 	// Read the message and short circuit in case of an error
 	msg, err := rw.MsgReadWriter.ReadMsg()
 	if err != nil {
