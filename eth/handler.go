@@ -108,15 +108,15 @@ type ProtocolManager struct {
 // NewProtocolManager returns a new Ethereum sub protocol manager. The Ethereum sub protocol manages peers capable
 // with the Ethereum network.
 func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCheckpoint, mode downloader.SyncMode, networkID uint64,
-	mux *event.TypeMux, rs *reedsolomon.RSCodec, fragpool *reedsolomon.FragPool, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain,
-	chaindb ethdb.Database, cacheLimit int, whitelist map[uint64]common.Hash) (*ProtocolManager, error) {
+	mux *event.TypeMux, rs *reedsolomon.RSCodec, fragpool *reedsolomon.FragPool, txpool txPool, engine consensus.Engine,
+	blockchain *core.BlockChain, chaindb ethdb.Database, cacheLimit int, whitelist map[uint64]common.Hash) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
 		networkID:   networkID,
 		forkFilter:  forkid.NewFilter(blockchain),
 		eventMux:    mux,
-		txpool:      txpool,
 		rs:			 rs,
+		txpool:      txpool,
 		fragpool:    fragpool,
 		blockchain:  blockchain,
 		peers:       newPeerSet(),
@@ -397,7 +397,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		return errResp(ErrExtraStatusMsg, "uncontrolled status message")
 
 	case msg.Code == TxFragMsg:
-		fmt.Printf("fragment received\n\n\n\n\n\n\n")
 		// Frags arrived, make sure we have a valid and fresh chain to handle them
 		if atomic.LoadUint32(&pm.acceptTxs) == 0 {
 			break
@@ -414,12 +413,12 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 
 		for _, frag := range frags.Frags {
+			fmt.Printf("\n Fragment::frag.Code here\n")
 			// Validate and mark the remote transaction
 			p.MarkFragment(frags.ID)
 			cnt = pm.fragpool.Insert(frag, frags.ID)
 		}
 		if cnt >= minFragNum {
-			reedsolomon.PrintFrags(&frags)
 			txRlp, flag := pm.fragpool.TryDecode(frags.ID, pm.rs)
 			// flag=1 means decode success
 			if flag == 1 {
@@ -989,15 +988,9 @@ func (pm *ProtocolManager) BlockToFragments(block *types.Block) (*reedsolomon.Fr
 }
 
 func (pm *ProtocolManager) TxToFragments(tx *types.Transaction) *reedsolomon.Fragments {
-	rs := &reedsolomon.RSCodec{
-		Primitive:  reedsolomon.Primitive,
-		EccSymbols: reedsolomon.EccSymbol,
-		NumSymbols: reedsolomon.NumSymbol,
-	}
-	rs.InitLookupTables()
 	id := tx.Hash()
 	rlpCode, _ := rlp.EncodeToBytes(tx)
-	frags := rs.DivideAndEncode(rlpCode)
+	frags := pm.rs.DivideAndEncode(rlpCode)
 	tmp := reedsolomon.NewFragments(0)
 	tmp.ID = id
 	for _, frag := range frags {
