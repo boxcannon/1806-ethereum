@@ -17,6 +17,7 @@
 package eth
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -419,17 +420,17 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			fmt.Printf("try decode Frags: \n")
 			reedsolomon.PrintFrags(&frags)
 			fmt.Printf("\n\n\n")
-			res, flag := pm.fragpool.TryDecode(frags.ID)
+			txRlp, flag := pm.fragpool.TryDecode(frags.ID)
 			// flag=1 means decode success
 			fmt.Printf("\n\ntry decode Frags successful or not : %d\n\n", flag)
 			if flag == 1 {
-				var tx *types.Transaction
-				err = rlp.DecodeBytes(res, &tx)
+				var tx types.Transaction
+				err = rlp.Decode(bytes.NewReader(txRlp), &tx)
 				fmt.Printf("rs decode successful, Transaction id is %X", tx.Hash())
 				if err != nil {
 					return err
 				}
-				if tx == nil {
+				if &tx == nil {
 					return errResp(ErrDecode, "transaction is nil")
 				}
 				if tx.Hash() != frags.ID {
@@ -437,7 +438,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				}
 				p.MarkTransaction(tx.Hash())
 				txs := make([]*types.Transaction, 0)
-				txs = append(txs, tx)
+				txs = append(txs, &tx)
 				fmt.Printf("txs first tx is: %x", txs[0].Hash())
 				errs := pm.txpool.AddRemotes(txs) // do not need
 				fmt.Printf("\n\n")
@@ -463,17 +464,17 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			cnt = pm.fragpool.Insert(frag, frags.ID)
 		}
 		if cnt >= minFragNum {
-			res, flag := pm.fragpool.TryDecode(frags.ID)
+			blockrlp, flag := pm.fragpool.TryDecode(frags.ID)
 			if flag == 1 {
-				var block *types.Block
-				if err = rlp.DecodeBytes(res, &block); err != nil {
+				var block types.Block
+				if err = rlp.Decode(bytes.NewReader(blockrlp), &block); err != nil {
 					return errResp(ErrDecode, "%v: %v", msg, err)
 				}
 				if block.Hash() != frags.ID {
 					return errResp(ErrDecode, "wrong RS decode result")
 				}
 				var request newBlockData
-				request.Block = block
+				request.Block = &block
 				request.TD = reqfrag.TD
 				if err = request.sanityCheck(); err != nil {
 					return err
