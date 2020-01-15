@@ -19,7 +19,6 @@ package eth
 import (
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/eth/reedsolomon"
 	"math/big"
 	"sync"
 	"time"
@@ -28,6 +27,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/forkid"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/eth/reedsolomon"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/rlp"
 )
@@ -100,7 +100,7 @@ type peer struct {
 	queuedProps      chan *propEvent           // Queue of blocks to broadcast to the peer
 	queuedAnns       chan *types.Block         // Queue of blocks to announce to the peer
 	queuedTxFrags    chan *reedsolomon.Fragments
-	queuedBlockFrags chan *reedsolomon.Fragments
+	queuedBlockFrags chan *propFragEvent
 	term             chan struct{} // Termination channel to stop the broadcaster
 }
 
@@ -117,7 +117,7 @@ func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
 		queuedProps:      make(chan *propEvent, maxQueuedProps),
 		queuedAnns:       make(chan *types.Block, maxQueuedAnns),
 		queuedTxFrags:    make(chan *reedsolomon.Fragments, maxQueuedFrags),
-		queuedBlockFrags: make(chan *reedsolomon.Fragments, maxQueuedFrags),
+		queuedBlockFrags: make(chan *propFragEvent, maxQueuedFrags),
 		term:             make(chan struct{}),
 	}
 }
@@ -156,7 +156,7 @@ func (p *peer) broadcast() {
 			if err := p.SendBlockFragments(prop.frags, prop.td); err != nil {
 				return
 			}
-			p.Log().Trace("Propagated Block Fragments", "count", len(frags.Frags))
+			p.Log().Trace("Propagated Block Fragments", "count", len(prop.frags.Frags))
 
 		case <-p.term:
 			return

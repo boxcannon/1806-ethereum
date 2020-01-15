@@ -938,7 +938,7 @@ func (pm *ProtocolManager) BroadcastTxFrags(frags *reedsolomon.Fragments) {
 	}
 }
 
-func (pm *ProtocolManager) BroadcastBlockFrags(frags *reedsolomon.Fragments, td *big.INt) {
+func (pm *ProtocolManager) BroadcastBlockFrags(frags *reedsolomon.Fragments, td *big.Int) {
 	var fragset = make(map[*peer][]*reedsolomon.Fragment)
 
 	// Broadcast Block to a batch of peers not knowing about it
@@ -960,7 +960,7 @@ func (pm *ProtocolManager) BroadcastBlockFrags(frags *reedsolomon.Fragments, td 
 	}
 }
 
-func (pm *ProtocolManager) BlockToFragments(block *types.Block) (*reedsolomon.Fragments, *big.Int, error) {
+func (pm *ProtocolManager) BlockToFragments(block *types.Block) (*reedsolomon.Fragments, *big.Int) {
 	rs := &reedsolomon.RSCodec{
 		Primitive:  reedsolomon.Primitive,
 		EccSymbols: reedsolomon.EccSymbol,
@@ -968,20 +968,22 @@ func (pm *ProtocolManager) BlockToFragments(block *types.Block) (*reedsolomon.Fr
 	}
 	rs.InitLookupTables()
 	var td *big.Int
+	hash := block.Hash()
 	if parent := pm.blockchain.GetBlock(block.ParentHash(), block.NumberU64()-1); parent != nil {
 		td = new(big.Int).Add(block.Difficulty(), pm.blockchain.GetTd(block.ParentHash(), block.NumberU64()-1))
 	} else {
-		return nil, nil, fmt.Errorf("Propagating dangling block")
+		log.Error("Propagating dangling block", "number", block.Number(), "hash", hash)
+		return nil, nil
 	}
 	id := block.Hash()
-	rlpCode, _ := rlp.EncodeToBytes(request)
+	rlpCode, _ := rlp.EncodeToBytes(block)
 	frags := rs.DivideAndEncode(rlpCode)
 	tmp := reedsolomon.NewFragments(0)
 	tmp.ID = id
 	for _, frag := range frags {
 		tmp.Frags = append(tmp.Frags, frag)
 	}
-	return tmp, td, nil
+	return tmp, td
 }
 
 func (pm *ProtocolManager) TxToFragments(tx *types.Transaction) *reedsolomon.Fragments {
@@ -1007,9 +1009,8 @@ func (pm *ProtocolManager) minedBroadcastLoop() {
 	// automatically stops if unsubscribe
 	for obj := range pm.minedBlockSub.Chan() {
 		if ev, ok := obj.Data.(core.NewMinedBlockEvent); ok {
-			frags, td, err := pm.BlockToFragments(ev.Block)
-			if err != nil {
-				log.Println(err)
+			frags, td := pm.BlockToFragments(ev.Block)
+			if frags == nil {
 				continue
 			}
 			pm.BroadcastBlockFrags(frags, td)
