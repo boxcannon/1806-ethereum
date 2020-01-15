@@ -80,6 +80,7 @@ type ProtocolManager struct {
 	txpool     txPool
 	fragpool   *reedsolomon.FragPool
 	blockchain *core.BlockChain
+	rs  	   *reedsolomon.RSCodec
 	maxPeers   int
 
 	downloader *downloader.Downloader
@@ -418,7 +419,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		if cnt >= minFragNum {
 			reedsolomon.PrintFrags(&frags)
-			txRlp, flag := pm.fragpool.TryDecode(frags.ID)
+			txRlp, flag := pm.fragpool.TryDecode(frags.ID, pm.rs)
 			// flag=1 means decode success
 			if flag == 1 {
 				var tx types.Transaction
@@ -458,7 +459,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			cnt = pm.fragpool.Insert(frag, frags.ID)
 		}
 		if cnt >= minFragNum {
-			blockrlp, flag := pm.fragpool.TryDecode(frags.ID)
+			blockrlp, flag := pm.fragpool.TryDecode(frags.ID, pm.rs)
 			if flag == 1 {
 				var block types.Block
 				if err = rlp.Decode(bytes.NewReader(blockrlp), &block); err != nil {
@@ -966,7 +967,7 @@ func (pm *ProtocolManager) BroadcastBlockFrags(frags *reedsolomon.Fragments, td 
 	}
 }
 
-func (pm *ProtocolManager) BlockToFragments(block *types.Block) (*reedsolomon.Fragments, error) {
+func (pm *ProtocolManager) BlockToFragments(block *types.Block) (*reedsolomon.Fragments, *big.Int) {
 	var td *big.Int
 	hash := block.Hash()
 	if parent := pm.blockchain.GetBlock(block.ParentHash(), block.NumberU64()-1); parent != nil {
