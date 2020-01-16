@@ -376,14 +376,9 @@ func (pm *ProtocolManager) handle(p *peer) error {
 // peer. The remote connection is torn down upon returning any error.
 func (pm *ProtocolManager) handleMsg(p *peer) error {
 	// Read the next message from the remote peer, and ensure it's fully consumed
-	fmt.Printf("\n ProtocolManager. \n\n")
 	msg, err := p.rw.ReadMsg()
-	fmt.Printf("\n ProtocolManager::msg.Code %x \n\n", msg.Code)
 	if err != nil {
 		return err
-	}
-	if msg.Code == TxFragMsg {
-		fmt.Printf("Message Received \n\n\n\n\n\n\n\n\n")
 	}
 	if msg.Size > protocolMaxMsgSize {
 		return errResp(ErrMsgTooLarge, "%v > %v", msg.Size, protocolMaxMsgSize)
@@ -407,7 +402,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if err := msg.Decode(&frags); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
-		reedsolomon.PrintFrags(&frags)
 		if pm.txpool.CheckExistence(frags.ID) != nil {
 			break
 		}
@@ -440,7 +434,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				for _, err = range errs {
 					fmt.Println(err)
 				}
-				fmt.Printf("\n\n")
 				pm.fragpool.Clean(frags.ID)
 			} else {
 				panic("RS cannot decode")
@@ -1021,10 +1014,9 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 		case event := <-pm.txsCh:
 			for _, tx := range event.Txs {
 				frags := pm.TxToFragments(tx)
-				reedsolomon.PrintFrags(frags)
 				pm.BroadcastTxFrags(frags)
 			}
-
+			//pm.BroadcastTransactions(txs)
 		// Err() channel will be closed when unsubscribing.
 		case <-pm.txsSub.Err():
 			return
