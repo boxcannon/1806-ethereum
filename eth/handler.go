@@ -980,7 +980,7 @@ func (pm *ProtocolManager) BroadcastBlockFrags(frags *reedsolomon.Fragments, td 
 			fragToSend := reedsolomon.NewFragments()
 			fragToSend.Frags = fragsCopy[peerFragsNum*idx : peerFragsNum*(idx+1)]
 			fragToSend.ID = frags.ID
-			peer.AsyncSendBlockFrags(&fragToSend, td)
+			peer.AsyncSendBlockFrags(fragToSend, td)
 			idx += 1
 		}
 	}
