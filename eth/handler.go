@@ -453,7 +453,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		frags := reqfrag.Frags
 		fmt.Printf("Received block frags : %x\n", frags.ID)
-		reedsolomon.PrintFrags(&frags)
+		reedsolomon.PrintFrags(frags)
 		for _, frag := range frags.Frags {
 			p.MarkFragment(frag.Hash())
 			cnt = pm.fragpool.Insert(frag, frags.ID)
