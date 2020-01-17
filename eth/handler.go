@@ -409,7 +409,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if pm.txpool.CheckExistence(frags.ID) != nil {
 			break
 		}
-
+		fmt.Printf("Received transaction frags : %x\n", frags.ID)
+		reedsolomon.PrintFrags(frags)
 		for _, frag := range frags.Frags {
 			fmt.Printf("\n Fragment::frag.Code here\n")
 			// Validate and mark the remote transaction
@@ -451,6 +452,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 		frags := reqfrag.Frags
+		fmt.Printf("Received block frags : %x\n", frags.ID)
+		reedsolomon.PrintFrags(frags)
 		for _, frag := range frags.Frags {
 			p.MarkFragment(frag.Hash())
 			cnt = pm.fragpool.Insert(frag, frags.ID)
