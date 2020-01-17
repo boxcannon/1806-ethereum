@@ -39,6 +39,7 @@ import (
 	"github.com/ethereum/go-ethereum/trie"
 	"math"
 	"math/big"
+	"math/rand"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -57,6 +58,9 @@ const (
 
 	// minimum number of frags to try to decode
 	minFragNum = 40
+
+	//number or Fragments each peer to send
+	PeerFragsNum = 40
 )
 
 var (
@@ -80,7 +84,7 @@ type ProtocolManager struct {
 	txpool     txPool
 	fragpool   *reedsolomon.FragPool
 	blockchain *core.BlockChain
-	rs  	   *reedsolomon.RSCodec
+	rs         *reedsolomon.RSCodec
 	maxPeers   int
 
 	downloader *downloader.Downloader
@@ -115,7 +119,7 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 		networkID:   networkID,
 		forkFilter:  forkid.NewFilter(blockchain),
 		eventMux:    mux,
-		rs:			 rs,
+		rs:          rs,
 		txpool:      txpool,
 		fragpool:    fragpool,
 		blockchain:  blockchain,
@@ -917,47 +921,67 @@ func (pm *ProtocolManager) BroadcastTxs(txs types.Transactions) {
 }
 
 func (pm *ProtocolManager) BroadcastTxFrags(frags *reedsolomon.Fragments) {
-	var fragset = make(map[*peer][]*reedsolomon.Fragment)
-	//Broadcast transactions to a batch of peers not knowing about it
+	//Broadcast transaction fragments to a batch of peers not knowing about it
+	peers := pm.peers.PeersWithoutTx(frags.ID)
+	peerFragsNum := PeerFragsNum
+	var fragsCopy []reedsolomon.Fragment
 	for _, frag := range frags.Frags {
-		peers := pm.peers.PeersWithoutTxFrag(frag.Hash())
+		fragsCopy = append(fragsCopy, *frag)
+	}
+	if len(fragsCopy) < peerFragsNum {
+		peerFragsNum = len(fragsCopy)
 		for _, peer := range peers {
-			if _, flag := fragset[peer]; !flag {
-				fragset[peer] = make([]*reedsolomon.Fragment, 0)
-			}
-			fragset[peer] = append(fragset[peer], frag)
+			peer.AsyncSendTxFrags(frags)
 		}
-		log.Trace("Broadcalist block fragments", "hash", frag.Hash(), "recipients", len(peers))
+	} else {
+		idx := 0
+		for _, peer := range peers {
+			if peerFragsNum*(idx+1) > len(fragsCopy) {
+				idx = 0
+				rand.Shuffle(len(fragsCopy), func(i, j int) {
+					fragsCopy[i], fragsCopy[j] = fragsCopy[j], fragsCopy[i]
+				})
+			}
+			fragToSend := reedsolomon.NewFragments()
+			fragToSend.Frags = fragsCopy[peerFragsNum*idx : peerFragsNum*(idx+1)]
+			fragToSend.ID = frags.ID
+			peer.AsyncSendTxFrags(&fragToSend)
+			idx += 1
+		}
 	}
-	for peer, _ := range fragset {
-		//toSendFrags := reedsolomon.NewFragments(0)
-		//toSendFrags.ID = frags.ID
-		//toSendFrags.Frags = frag
-		//peer.AsyncSendTxFrags(toSendFrags)
-		peer.AsyncSendTxFrags(frags)
-	}
+	log.Trace("Broadcalist Tx fragments : ", "Tx hash", frags.ID, "recipients", len(peers))
 }
 
 func (pm *ProtocolManager) BroadcastBlockFrags(frags *reedsolomon.Fragments, td *big.Int) {
-	var fragset = make(map[*peer][]*reedsolomon.Fragment)
-
-	// Broadcast Block to a batch of peers not knowing about it
+	//Broadcast transaction fragments to a batch of peers not knowing about it
+	peers := pm.peers.PeersWithoutBlock(frags.ID)
+	peerFragsNum := PeerFragsNum
+	var fragsCopy []reedsolomon.Fragment
 	for _, frag := range frags.Frags {
-		peers := pm.peers.PeersWithoutBlockFrag(frag.Hash())
+		fragsCopy = append(fragsCopy, *frag)
+	}
+	if len(fragsCopy) < peerFragsNum {
+		peerFragsNum = len(fragsCopy)
 		for _, peer := range peers {
-			if _, flag := fragset[peer]; !flag {
-				fragset[peer] = make([]*reedsolomon.Fragment, 0)
-			}
-			fragset[peer] = append(fragset[peer], frag)
+			peer.AsyncSendBlockFrags(frags, td)
 		}
-		log.Trace("Broadcast block fragments", "hash", frag.Hash(), "recipients", len(peers))
+	} else {
+		idx := 0
+		for _, peer := range peers {
+			if peerFragsNum*(idx+1) > len(fragsCopy) {
+				idx = 0
+				rand.Shuffle(len(fragsCopy), func(i, j int) {
+					fragsCopy[i], fragsCopy[j] = fragsCopy[j], fragsCopy[i]
+				})
+			}
+			fragToSend := reedsolomon.NewFragments()
+			fragToSend.Frags = fragsCopy[peerFragsNum*idx : peerFragsNum*(idx+1)]
+			fragToSend.ID = frags.ID
+			peer.AsyncSendBlockFrags(&fragToSend, td)
+			idx += 1
+		}
 	}
-	for peer, frag := range fragset {
-		toSendFrags := reedsolomon.NewFragments(0)
-		toSendFrags.ID = frags.ID
-		toSendFrags.Frags = frag
-		peer.AsyncSendBlockFrags(toSendFrags, td)
-	}
+	log.Trace("Broadcalist Block fragments : ", "Block hash", frags.ID, "recipients", len(peers))
 }
 
 func (pm *ProtocolManager) BlockToFragments(block *types.Block) (*reedsolomon.Fragments, *big.Int) {
