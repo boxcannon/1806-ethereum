@@ -925,6 +925,10 @@ func (pm *ProtocolManager) BroadcastTxs(txs types.Transactions) {
 
 func (pm *ProtocolManager) BroadcastTxFrags(frags *reedsolomon.Fragments) {
 	//Broadcast transaction fragments to a batch of peers not knowing about it
+	var fragindex0 []int
+	for i, _ := range frags.Frags {
+		fragindex0 = append(fragindex0, i)
+	}
 	peers := pm.peers.PeersWithoutTx(frags.ID)
 	peerFragsNum := PeerFragsNum
 	if len(frags.Frags) < peerFragsNum {
@@ -934,15 +938,18 @@ func (pm *ProtocolManager) BroadcastTxFrags(frags *reedsolomon.Fragments) {
 		}
 	} else {
 		idx := 0
+		fragindex := fragindex0
 		for _, peer := range peers {
 			if peerFragsNum*(idx+1) > len(frags.Frags) {
 				idx = 0
-				rand.Shuffle(len(frags.Frags), func(i, j int) {
-					frags.Frags[i], frags.Frags[j] = frags.Frags[j], frags.Frags[i]
+				rand.Shuffle(len(fragindex), func(i, j int) {
+					fragindex[i], fragindex[j] = fragindex[j], fragindex[i]
 				})
 			}
 			fragToSend := reedsolomon.NewFragments(0)
-			fragToSend.Frags = frags.Frags[peerFragsNum*idx : peerFragsNum*(idx+1)]
+			for _, i := range fragindex[peerFragsNum*idx : peerFragsNum*(idx+1)] {
+				fragToSend.Frags = append(fragToSend.Frags, frags.Frags[i])
+			}
 			fragToSend.ID = frags.ID
 			peer.AsyncSendTxFrags(fragToSend)
 			idx += 1

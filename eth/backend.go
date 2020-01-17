@@ -78,7 +78,7 @@ type Ethereum struct {
 	lesServer       LesServer
 
 	// RSCode Table
-	rs              *reedsolomon.RSCodec
+	rs *reedsolomon.RSCodec
 
 	// DB interfaces
 	chainDb ethdb.Database // Block chain database
@@ -208,10 +208,11 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 
 	eth.fragpool = reedsolomon.NewFragPool()
 	eth.rs = &reedsolomon.RSCodec{
-		Primitive:	reedsolomon.Primitive,
-		EccSymbols:	reedsolomon.EccSymbol,
+		Primitive:  reedsolomon.Primitive,
+		EccSymbols: reedsolomon.EccSymbol,
 		NumSymbols: reedsolomon.NumSymbol,
 	}
+	eth.rs.InitLookupTables()
 
 	// Permit the downloader to use the trie cache allowance during fast sync
 	cacheLimit := cacheConfig.TrieCleanLimit + cacheConfig.TrieDirtyLimit
