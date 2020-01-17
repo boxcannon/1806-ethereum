@@ -60,7 +60,7 @@ const (
 	minFragNum = 40
 
 	//number or Fragments each peer to send
-	PeerFragsNum = 40
+	PeerFragsNum = 150
 )
 
 var (
