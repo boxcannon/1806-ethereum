@@ -528,6 +528,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 					// scenario should easily be covered by the fetcher.
 					currentBlock := pm.blockchain.CurrentBlock()
 					if trueTD.Cmp(pm.blockchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())) > 0 {
+						fmt.Printf("Start synchronoise block id : %x\n\n\n", request.Block.Hash())
 						go pm.synchronise(p)
 					}
 				}
@@ -956,10 +957,10 @@ func (pm *ProtocolManager) BroadcastTxs(txs types.Transactions) {
 }
 
 func (pm *ProtocolManager) BroadcastReceivedFrags(frags *reedsolomon.Fragments, msgCode uint64, td *big.Int) {
-	fmt.Printf("frags in pm.BroadcastBlockFrags(), ID:%x, MsgCode:%d, td%d\n\n", frags.ID,msgCode,td)
+	fmt.Printf("frags in pm.BroadcastReceivedFrags(), ID:%x, MsgCode:%d, td%d\n\n", frags.ID,msgCode,td)
 	switch msgCode {
 	case TxFragMsg:
-		fmt.Printf("frags in pm.BroadcastBlockFrags() switch, ID:%x, MsgCode:%d, td%d\n\n", frags.ID,msgCode,td)
+		fmt.Printf("frags in pm.BroadcastReceivedFrags() switch, ID:%x, MsgCode:%d, td%d\n\n", frags.ID,msgCode,td)
 		peers := pm.peers.PeersWithoutTx(frags.ID)
 		for _, peer := range peers {
 			fmt.Printf("peer send tx frags id:%x \n\n", frags.ID)
