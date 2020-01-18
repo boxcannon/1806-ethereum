@@ -399,6 +399,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 func (pm *ProtocolManager) handleMsg(p *peer) error {
 	// Read the next message from the remote peer, and ensure it's fully consumed
 	msg, err := p.rw.ReadMsg()
+	fmt.Printf("msg received, code: %d,from %x\n\n\n",msg.Code,p.id)
 	if err != nil {
 		return err
 	}
