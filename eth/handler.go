@@ -113,7 +113,7 @@ type ProtocolManager struct {
 	newPeerCh         chan *peer
 	txsyncCh          chan *txsync
 	quitSync          chan struct{}
-	quitFragBroadcast chan struct{}
+	quitFragsBroadcast chan struct{}
 	noMorePeers       chan struct{}
 
 	// wait group is used for graceful shutdowns during downloading
@@ -141,7 +141,7 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 		noMorePeers:       make(chan struct{}),
 		txsyncCh:          make(chan *txsync),
 		quitSync:          make(chan struct{}),
-		quitFragBroadcast: make(chan struct{}),
+		quitFragsBroadcast: make(chan struct{}),
 	}
 	if mode == downloader.FullSync {
 		// The database seems empty as the current block is the genesis. Yet the fast
@@ -303,7 +303,7 @@ func (pm *ProtocolManager) Stop() {
 
 	// Quit fetcher, txsyncLoop.
 	close(pm.quitSync)
-	close(pm.quitFragBroadcast)
+	close(pm.quitFragsBroadcast)
 
 	// Disconnect existing sessions.
 	// This also closes the gate for any new registrations on the peer set.
@@ -955,6 +955,7 @@ func (pm *ProtocolManager) BroadcastReceivedFrags(frags *reedsolomon.Fragments, 
 	case TxMsg:
 		peers := pm.peers.PeersWithoutTx(frags.ID)
 		for _, peer := range peers {
+			fmt.Printf("peer send tx frags id:%x \n\n", frags.ID)
 			peer.AsyncSendTxFrags(frags)
 		}
 	case NewBlockMsg:
@@ -1103,8 +1104,9 @@ func (pm *ProtocolManager) fragsBroadcastLoop() {
 	for {
 		select {
 		case fragMsg := <-pm.fragsCh:
+			fmt.Printf("Broadcast Received Fragments ID: %x, MsgCode: %d\n\n", fragMsg.frags.ID, fragMsg.code)
 			pm.BroadcastReceivedFrags(fragMsg.frags, fragMsg.code, fragMsg.td)
-		case <-pm.quitFragBroadcast:
+		case <-pm.quitFragsBroadcast:
 			return
 		}
 	}
