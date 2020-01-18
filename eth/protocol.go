@@ -108,6 +108,8 @@ type txPool interface {
 	// NewTxsEvent and send events to the given channel.
 	SubscribeNewTxsEvent(chan<- core.NewTxsEvent) event.Subscription
 
+	SubscribeLocalTxsEvent(chan<- core.NewTxsEvent) event.Subscription
+
 	CheckExistence(hash common.Hash) *types.Transaction
 }
 

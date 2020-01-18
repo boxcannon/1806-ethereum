@@ -54,6 +54,7 @@ type TxPool struct {
 	signer       types.Signer
 	quit         chan bool
 	txFeed       event.Feed
+	localTxFeed  event.Feed
 	scope        event.SubscriptionScope
 	chainHeadCh  chan core.ChainHeadEvent
 	chainHeadSub event.Subscription
@@ -332,6 +333,10 @@ func (pool *TxPool) SubscribeNewTxsEvent(ch chan<- core.NewTxsEvent) event.Subsc
 	return pool.scope.Track(pool.txFeed.Subscribe(ch))
 }
 
+func (pool *TxPool) SubscribeLocalTxsEvent(ch chan<- core.NewTxsEvent) event.Subscription {
+	return pool.scope.Track((pool.localTxFeed.Subscribe(ch)))
+}
+
 // Stats returns the number of currently pending (locally created) transactions
 func (pool *TxPool) Stats() (pending int) {
 	pool.mu.RLock()
@@ -417,6 +422,7 @@ func (pool *TxPool) add(ctx context.Context, tx *types.Transaction) error {
 		// Notify the subscribers. This event is posted in a goroutine
 		// because it's possible that somewhere during the post "Remove transaction"
 		// gets called which will then wait for the global tx pool lock and deadlock.
+		go pool.localTxFeed.Send(core.NewTxsEvent{Txs: types.Transactions{tx}})
 		go pool.txFeed.Send(core.NewTxsEvent{Txs: types.Transactions{tx}})
 	}
 

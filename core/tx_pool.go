@@ -214,6 +214,7 @@ type TxPool struct {
 	chain       blockChain
 	gasPrice    *big.Int
 	txFeed      event.Feed
+	localTxFeed event.Feed
 	scope       event.SubscriptionScope
 	signer      types.Signer
 	mu          sync.RWMutex
@@ -404,6 +405,11 @@ func (pool *TxPool) CheckExistence(hash common.Hash) *types.Transaction {
 // starts sending event to the given channel.
 func (pool *TxPool) SubscribeNewTxsEvent(ch chan<- NewTxsEvent) event.Subscription {
 	return pool.scope.Track(pool.txFeed.Subscribe(ch))
+}
+
+//SubscribeLocalTxsEvent register a subscription of LocalTxEvent and starts sending event to the given channel.
+func (pool *TxPool) SubscribeLocalTxsEvent(ch chan<- NewTxsEvent) event.Subscription {
+	return pool.scope.Track(pool.localTxFeed.Subscribe(ch))
 }
 
 // GasPrice returns the current gas price enforced by the transaction pool.
@@ -731,6 +737,7 @@ func (pool *TxPool) promoteTx(addr common.Address, hash common.Hash, tx *types.T
 // This method is used to add transactions from the RPC API and performs synchronous pool
 // reorganization and event propagation.
 func (pool *TxPool) AddLocals(txs []*types.Transaction) []error {
+	pool.localTxFeed.Send(NewTxsEvent{txs})
 	return pool.addTxs(txs, !pool.config.NoLocals, true)
 }
 
@@ -788,14 +795,14 @@ func (pool *TxPool) addTxs(txs []*types.Transaction, local, sync bool) []error {
 		// Accumulate all unknown transactions for deeper processing
 		news = append(news, tx)
 	}
-	fmt.Printf("length of news : %d\n",len(news))
+	fmt.Printf("length of news : %d\n", len(news))
 	if len(news) == 0 {
 		return errs
 	}
 	// Cache senders in transactions before obtaining lock (pool.signer is immutable)
 	for _, tx := range news {
 		types.Sender(pool.signer, tx)
-		fmt.Printf("hash of tx is : %x\n",tx.Hash())
+		fmt.Printf("hash of tx is : %x\n", tx.Hash())
 	}
 	// Process all the new transaction and merge any errors into the original slice
 	pool.mu.Lock()
