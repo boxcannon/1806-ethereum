@@ -276,8 +276,7 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 
 	// broadcast transactions
 	pm.txsCh = make(chan core.NewTxsEvent, txChanSize)
-	pm.fragsCh = make(chan fragMsg, fragsChanSize)
-	pm.txsSub = pm.txpool.SubscribeNewTxsEvent(pm.txsCh)
+	pm.txsSub = pm.txpool.SubscribeLocalTxsEvent(pm.txsCh)
 	go pm.txBroadcastLoop()
 
 	// broadcast mined blocks
@@ -285,6 +284,7 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	go pm.minedBroadcastLoop()
 
 	// broadcast fragments
+	pm.fragsCh = make(chan fragMsg, fragsChanSize)
 	go pm.fragsBroadcastLoop()
 	// start sync handlers
 	go pm.syncer()
@@ -434,10 +434,15 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			p.MarkTransaction(frags.ID)
 			cnt = pm.fragpool.Insert(frag, frags.ID)
 		}
-		pm.fragsCh <- fragMsg{
+		select {
+		case pm.fragsCh <- fragMsg{
 			frags: &frags,
 			code:  msg.Code,
 			td:    nil,
+		}:
+			fmt.Printf("Tx Frags in channel\n\n\n")
+		default:
+			fmt.Printf("Tx Frags in channel failed \n\n\n")
 		}
 		if cnt >= minFragNum {
 			txRlp, flag := pm.fragpool.TryDecode(frags.ID, pm.rs)
