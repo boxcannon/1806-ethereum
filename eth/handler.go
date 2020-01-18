@@ -56,6 +56,9 @@ const (
 
 	// minimum number of frags to try to decode
 	minFragNum = 40
+
+	// maximum number of decoded Fragments to store
+	maxDecodeNum = 1024
 )
 
 var (
@@ -253,6 +256,30 @@ func (pm *ProtocolManager) removePeer(id string) {
 	}
 }
 
+func (pm *ProtocolManager) request(idx common.Hash) {
+	peer := pm.peers.RandomPeer()
+	peer.SendRequest(idx, pm.fragpool.Bit[idx])
+}
+
+func (pm *ProtocolManager) inspector() {
+	var temp map[common.Hash]uint16
+	temp = make(map[common.Hash]uint16, 0)
+	for {
+		time.Sleep(time.Second)
+		for k,v := range pm.fragpool.Cnt {
+			if _, flag := temp[k]; !flag {
+				temp[k] = v
+			} else {
+				if temp[k] != v {
+					temp[k] = v
+				} else {
+					pm.request(k)
+				}
+			}
+		}
+	}
+}
+
 func (pm *ProtocolManager) Start(maxPeers int) {
 	pm.maxPeers = maxPeers
 
@@ -264,6 +291,7 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	// broadcast mined blocks
 	pm.minedBlockSub = pm.eventMux.Subscribe(core.NewMinedBlockEvent{})
 	go pm.minedBroadcastLoop()
+	go pm.inspector()
 	// start sync handlers
 	go pm.syncer()
 	go pm.txsyncLoop()
@@ -375,15 +403,15 @@ func (pm *ProtocolManager) handle(p *peer) error {
 // peer. The remote connection is torn down upon returning any error.
 func (pm *ProtocolManager) handleMsg(p *peer) error {
 	// Read the next message from the remote peer, and ensure it's fully consumed
-	fmt.Printf("\n ProtocolManager. \n\n")
+	//fmt.Printf("\n ProtocolManager. \n\n")
 	msg, err := p.rw.ReadMsg()
-	fmt.Printf("\n ProtocolManager::msg.Code %x \n\n", msg.Code)
+	//fmt.Printf("\n ProtocolManager::msg.Code %x \n\n", msg.Code)
 	if err != nil {
 		return err
 	}
-	if msg.Code == TxFragMsg {
-		fmt.Printf("Message Received \n\n\n\n\n\n\n\n\n")
-	}
+	//if msg.Code == TxFragMsg {
+	//	fmt.Printf("Message Received \n\n\n\n\n\n\n\n\n")
+	//}
 	if msg.Size > protocolMaxMsgSize {
 		return errResp(ErrMsgTooLarge, "%v > %v", msg.Size, protocolMaxMsgSize)
 	}
@@ -406,7 +434,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if err := msg.Decode(&frags); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
-		reedsolomon.PrintFrags(&frags)
+		//reedsolomon.PrintFrags(&frags)
 		if pm.txpool.CheckExistence(frags.ID) != nil {
 			break
 		}
@@ -436,7 +464,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				txs := make([]*types.Transaction, 1)
 				txs[0] = tx
 				pm.txpool.AddRemotes(txs)
-				pm.fragpool.Clean(frags.ID)
+				// To Do
 			} else {
 				panic("RS cannot decode")
 			}
@@ -490,12 +518,41 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 						go pm.synchronise(p)
 					}
 				}
-				pm.fragpool.Clean(frags.ID)
-
+				// To Do
 			} else {
 				panic("cannot RS decode")
 			}
 		}
+
+	case msg.Code == RequestTxFragMsg:
+		// Transaction fragments can be processed, parse all of them and deliver to the pool
+		var frags *reedsolomon.Fragments
+		var req *reedsolomon.Request
+		if err := msg.Decode(&req); err != nil {
+			return errResp(ErrDecode, "msg %v: %v", msg, err)
+		}
+		// already decode successfully
+		if _, flag := pm.fragpool.Bit[req.ID]; !flag {
+			//To Do
+		} else {
+			frags = pm.fragpool.Prepare(req)
+		}
+		p2p.Send(p.rw, TxFragMsg, frags)
+
+	case msg.Code == RequestBlockFragMsg:
+		var frags *reedsolomon.Fragments
+		var req *reedsolomon.Request
+		if err := msg.Decode(&req); err != nil {
+			return errResp(ErrDecode, "msg %v: %v", msg, err)
+		}
+		// already decode successfully
+		if _, flag := pm.fragpool.Bit[req.ID]; !flag {
+			//To Do
+		} else {
+			frags = pm.fragpool.Prepare(req)
+		}
+		p2p.Send(p.rw, BlockFragMsg, frags)
+
 	// Block header query, collect the requested headers and reply
 	case msg.Code == GetBlockHeadersMsg:
 		// Decode the complex header query

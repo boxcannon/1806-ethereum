@@ -20,7 +20,9 @@ import (
 	"errors"
 	"fmt"
 	"github.com/ethereum/go-ethereum/eth/reedsolomon"
+	"github.com/willf/bitset"
 	"math/big"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -219,6 +221,20 @@ func (p *peer) MarkFragment(hash common.Hash) {
 		p.knownFrags.Pop()
 	}
 	p.knownFrags.Add(hash)
+}
+
+func (p *peer) SendRequest(idx common.Hash, s *bitset.BitSet) {
+	tmp := reedsolomon.NewRequest(idx, s)
+	// Try to send proper msg.code
+	if p.knownTxs.Contains(idx) {
+		p2p.Send(p.rw, RequestTxFragMsg, tmp)
+	} else {
+		if p.knownBlocks.Contains(idx) {
+			p2p.Send(p.rw, RequestBlockFragMsg, tmp)
+		} else {
+			fmt.Print("\nCould not decide request msg.code of fragments\n")
+		}
+	}
 }
 
 // SendTransactions sends transactions to the peer and includes the hashes
@@ -653,6 +669,21 @@ func (ps *peerSet) PeersWithoutTx(hash common.Hash) []*peer {
 		}
 	}
 	return list
+}
+
+func (ps *peerSet) RandomPeer() *peer{
+	ps.lock.RLock()
+	defer ps.lock.RUnlock()
+	idx := rand.Intn(len(ps.peers))
+	i := 0
+	var p *peer
+	for _, tmp := range ps.peers {
+		if i == idx {
+			p = tmp
+			break
+		}
+	}
+	return p
 }
 
 func (ps *peerSet) PeersWithoutTxFrag(hash common.Hash) []*peer {

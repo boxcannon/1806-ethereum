@@ -212,6 +212,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 		EccSymbols:	reedsolomon.EccSymbol,
 		NumSymbols: reedsolomon.NumSymbol,
 	}
+	eth.rs.InitLookupTables()
 
 	// Permit the downloader to use the trie cache allowance during fast sync
 	cacheLimit := cacheConfig.TrieCleanLimit + cacheConfig.TrieDirtyLimit
