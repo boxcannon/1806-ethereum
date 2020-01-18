@@ -528,7 +528,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 					// scenario should easily be covered by the fetcher.
 					currentBlock := pm.blockchain.CurrentBlock()
 					if trueTD.Cmp(pm.blockchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())) > 0 {
-						fmt.Printf("Start synchronoise block id : %x\n\n\n", request.Block.Hash())
+						fmt.Printf("BlockFragMSg :: Start synchronoise block id : %x\n\n\n", request.Block.Hash())
 						go pm.synchronise(p)
 					}
 				}
@@ -868,6 +868,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			// scenario should easily be covered by the fetcher.
 			currentBlock := pm.blockchain.CurrentBlock()
 			if trueTD.Cmp(pm.blockchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())) > 0 {
+				fmt.Printf("NewBlockMSg :: Start synchronoise block id : %x\n\n\n", request.Block.Hash())
 				go pm.synchronise(p)
 			}
 		}
