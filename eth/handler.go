@@ -966,7 +966,7 @@ func (pm *ProtocolManager) BroadcastReceivedFrags(frags *reedsolomon.Fragments, 
 			peer.AsyncSendTxFrags(frags)
 		}
 	case BlockFragMsg:
-		peers := pm.peers.PeersWithoutTx(frags.ID)
+		peers := pm.peers.PeersWithoutBlock(frags.ID)
 		for _, peer := range peers {
 			peer.AsyncSendBlockFrags(frags, td)
 		}
