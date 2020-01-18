@@ -53,6 +53,10 @@ const (
 	// The number is referenced from the size of tx pool.
 	txChanSize = 4096
 
+	//fragChanSize is the size of channel listening to fragMsg
+	// The number is referenced from the size of tx pool
+	fragsChanSize = 4096
+
 	// minimum number of peers to broadcast new blocks to
 	minBroadcastPeers = 4
 
@@ -66,6 +70,12 @@ const (
 var (
 	syncChallengeTimeout = 15 * time.Second // Time allowance for a node to reply to the sync progress challenge
 )
+
+type fragMsg struct {
+	frags *reedsolomon.Fragments
+	code  uint64
+	td    *big.Int
+}
 
 func errResp(code errCode, format string, v ...interface{}) error {
 	return fmt.Errorf("%v - %v", code, fmt.Sprintf(format, v...))
@@ -95,14 +105,16 @@ type ProtocolManager struct {
 	txsCh         chan core.NewTxsEvent
 	txsSub        event.Subscription
 	minedBlockSub *event.TypeMuxSubscription
+	fragsCh       chan fragMsg
 
 	whitelist map[uint64]common.Hash
 
 	// channels for fetcher, syncer, txsyncLoop
-	newPeerCh   chan *peer
-	txsyncCh    chan *txsync
-	quitSync    chan struct{}
-	noMorePeers chan struct{}
+	newPeerCh         chan *peer
+	txsyncCh          chan *txsync
+	quitSync          chan struct{}
+	quitFragBroadcast chan struct{}
+	noMorePeers       chan struct{}
 
 	// wait group is used for graceful shutdowns during downloading
 	// and processing
@@ -116,19 +128,20 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 	blockchain *core.BlockChain, chaindb ethdb.Database, cacheLimit int, whitelist map[uint64]common.Hash) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
-		networkID:   networkID,
-		forkFilter:  forkid.NewFilter(blockchain),
-		eventMux:    mux,
-		rs:          rs,
-		txpool:      txpool,
-		fragpool:    fragpool,
-		blockchain:  blockchain,
-		peers:       newPeerSet(),
-		whitelist:   whitelist,
-		newPeerCh:   make(chan *peer),
-		noMorePeers: make(chan struct{}),
-		txsyncCh:    make(chan *txsync),
-		quitSync:    make(chan struct{}),
+		networkID:         networkID,
+		forkFilter:        forkid.NewFilter(blockchain),
+		eventMux:          mux,
+		rs:                rs,
+		txpool:            txpool,
+		fragpool:          fragpool,
+		blockchain:        blockchain,
+		peers:             newPeerSet(),
+		whitelist:         whitelist,
+		newPeerCh:         make(chan *peer),
+		noMorePeers:       make(chan struct{}),
+		txsyncCh:          make(chan *txsync),
+		quitSync:          make(chan struct{}),
+		quitFragBroadcast: make(chan struct{}),
 	}
 	if mode == downloader.FullSync {
 		// The database seems empty as the current block is the genesis. Yet the fast
@@ -263,12 +276,16 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 
 	// broadcast transactions
 	pm.txsCh = make(chan core.NewTxsEvent, txChanSize)
+	pm.fragsCh = make(chan fragMsg, fragsChanSize)
 	pm.txsSub = pm.txpool.SubscribeLocalTxsEvent(pm.txsCh)
 	go pm.txBroadcastLoop()
 
 	// broadcast mined blocks
 	pm.minedBlockSub = pm.eventMux.Subscribe(core.NewMinedBlockEvent{})
 	go pm.minedBroadcastLoop()
+
+	// broadcast fragments
+	go pm.fragsBroadcastLoop()
 	// start sync handlers
 	go pm.syncer()
 	go pm.txsyncLoop()
@@ -286,6 +303,7 @@ func (pm *ProtocolManager) Stop() {
 
 	// Quit fetcher, txsyncLoop.
 	close(pm.quitSync)
+	close(pm.quitFragBroadcast)
 
 	// Disconnect existing sessions.
 	// This also closes the gate for any new registrations on the peer set.
@@ -412,10 +430,14 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		fmt.Printf("Received transaction frags : %x\n", frags.ID)
 		reedsolomon.PrintFrags(&frags)
 		for _, frag := range frags.Frags {
-			fmt.Printf("\n Fragment::frag.Code here\n")
 			// Validate and mark the remote transaction
-			p.MarkFragment(frags.ID)
+			p.MarkTransaction(frags.ID)
 			cnt = pm.fragpool.Insert(frag, frags.ID)
+		}
+		pm.fragsCh <- fragMsg{
+			frags: &frags,
+			code:  msg.Code,
+			td:    nil,
 		}
 		if cnt >= minFragNum {
 			txRlp, flag := pm.fragpool.TryDecode(frags.ID, pm.rs)
@@ -454,9 +476,14 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		frags := reqfrag.Frags
 		fmt.Printf("Received block frags : %x\n", frags.ID)
 		reedsolomon.PrintFrags(frags)
+		p.MarkBlock(frags.ID)
 		for _, frag := range frags.Frags {
-			p.MarkFragment(frag.Hash())
 			cnt = pm.fragpool.Insert(frag, frags.ID)
+		}
+		pm.fragsCh <- fragMsg{
+			frags: reqfrag.Frags,
+			code:  msg.Code,
+			td:    reqfrag.TD,
 		}
 		if cnt >= minFragNum {
 			blockrlp, flag := pm.fragpool.TryDecode(frags.ID, pm.rs)
@@ -923,6 +950,21 @@ func (pm *ProtocolManager) BroadcastTxs(txs types.Transactions) {
 	}
 }
 
+func (pm *ProtocolManager) BroadcastReceivedFrags(frags *reedsolomon.Fragments, msgcode uint64, td *big.Int) {
+	switch msgcode {
+	case TxMsg:
+		peers := pm.peers.PeersWithoutTx(frags.ID)
+		for _, peer := range peers {
+			peer.AsyncSendTxFrags(frags)
+		}
+	case NewBlockMsg:
+		peers := pm.peers.PeersWithoutTx(frags.ID)
+		for _, peer := range peers {
+			peer.AsyncSendBlockFrags(frags, td)
+		}
+	}
+}
+
 func (pm *ProtocolManager) BroadcastTxFrags(frags *reedsolomon.Fragments) {
 	//Broadcast transaction fragments to a batch of peers not knowing about it
 	var fragindex0 []int
@@ -1052,6 +1094,17 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 			//pm.BroadcastTransactions(txs)
 		// Err() channel will be closed when unsubscribing.
 		case <-pm.txsSub.Err():
+			return
+		}
+	}
+}
+
+func (pm *ProtocolManager) fragsBroadcastLoop() {
+	for {
+		select {
+		case fragMsg := <-pm.fragsCh:
+			pm.BroadcastReceivedFrags(fragMsg.frags, fragMsg.code, fragMsg.td)
+		case <-pm.quitFragBroadcast:
 			return
 		}
 	}

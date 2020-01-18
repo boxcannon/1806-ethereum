@@ -41,7 +41,7 @@ var (
 const (
 	maxKnownTxs    = 32768 // Maximum transactions hashes to keep in the known list (prevent DOS)
 	maxKnownBlocks = 1024  // Maximum block hashes to keep in the known list (prevent DOS)
-	maxKnownFrags  = 32768 // Maximum transaction fragments hashes to keep in the known list (prevent DOS)
+
 	// maxQueuedTxs is the maximum number of transaction lists to queue up before
 	// dropping broadcasts. This is a sensitive number as a transaction list might
 	// contain a single transaction, or thousands.
@@ -95,7 +95,6 @@ type peer struct {
 
 	knownTxs         mapset.Set                // Set of transaction hashes known to be known by this peer
 	knownBlocks      mapset.Set                // Set of block hashes known to be known by this peer
-	knownFrags       mapset.Set                // Set of frag hashes known to be known by this peer
 	queuedTxs        chan []*types.Transaction // Queue of transactions to broadcast to the peer
 	queuedProps      chan *propEvent           // Queue of blocks to broadcast to the peer
 	queuedAnns       chan *types.Block         // Queue of blocks to announce to the peer
@@ -112,7 +111,6 @@ func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
 		id:               fmt.Sprintf("%x", p.ID().Bytes()[:8]),
 		knownTxs:         mapset.NewSet(),
 		knownBlocks:      mapset.NewSet(),
-		knownFrags:       mapset.NewSet(),
 		queuedTxs:        make(chan []*types.Transaction, maxQueuedTxs),
 		queuedProps:      make(chan *propEvent, maxQueuedProps),
 		queuedAnns:       make(chan *types.Block, maxQueuedAnns),
@@ -219,13 +217,6 @@ func (p *peer) MarkTransaction(hash common.Hash) {
 	p.knownTxs.Add(hash)
 }
 
-func (p *peer) MarkFragment(hash common.Hash) {
-	for p.knownFrags.Cardinality() >= maxKnownFrags {
-		p.knownFrags.Pop()
-	}
-	p.knownFrags.Add(hash)
-}
-
 // SendTransactions sends transactions to the peer and includes the hashes
 // in its transaction hash set for future reference.
 func (p *peer) SendTransactions(txs types.Transactions) error {
@@ -240,21 +231,17 @@ func (p *peer) SendTransactions(txs types.Transactions) error {
 }
 
 func (p *peer) SendTxFragments(frags *reedsolomon.Fragments) error {
-	for _, frag := range frags.Frags {
-		p.knownFrags.Add(frag.Hash())
-	}
-	for p.knownFrags.Cardinality() >= maxKnownFrags {
-		p.knownFrags.Pop()
+	p.knownTxs.Add(frags.ID)
+	for p.knownTxs.Cardinality() >= maxKnownTxs {
+		p.knownTxs.Pop()
 	}
 	return p2p.Send(p.rw, TxFragMsg, frags)
 }
 
 func (p *peer) SendBlockFragments(frags *reedsolomon.Fragments, td *big.Int) error {
-	for _, frag := range frags.Frags {
-		p.knownFrags.Add(frag.Hash())
-	}
-	for p.knownFrags.Cardinality() >= maxKnownFrags {
-		p.knownFrags.Pop()
+	p.knownBlocks.Add(frags.ID)
+	for p.knownBlocks.Cardinality() >= maxKnownBlocks {
+		p.knownBlocks.Pop()
 	}
 	return p2p.Send(p.rw, BlockFragMsg, []interface{}{frags, td})
 }
@@ -280,11 +267,9 @@ func (p *peer) AsyncSendTxFrags(frags *reedsolomon.Fragments) {
 	select {
 	case p.queuedTxFrags <- frags:
 		// Mark all the transactions as known, but ensure we don't overflow our limits
-		for _, frag := range frags.Frags {
-			p.knownFrags.Add(frag.Hash())
-		}
-		for p.knownFrags.Cardinality() >= maxKnownFrags {
-			p.knownFrags.Pop()
+		p.knownTxs.Add(frags.ID)
+		for p.knownTxs.Cardinality() >= maxKnownTxs {
+			p.knownTxs.Pop()
 		}
 	default:
 		p.Log().Debug("Dropping transaction fragments propagation", "count", len(frags.Frags))
@@ -295,11 +280,9 @@ func (p *peer) AsyncSendBlockFrags(frags *reedsolomon.Fragments, td *big.Int) {
 	select {
 	case p.queuedBlockFrags <- &propFragEvent{frags: frags, td: td}:
 		// Mark all the transactions as known, but ensure we don't overflow our limits
-		for _, frag := range frags.Frags {
-			p.knownFrags.Add(frag.Hash())
-		}
-		for p.knownFrags.Cardinality() >= maxKnownFrags {
-			p.knownFrags.Pop()
+		p.knownBlocks.Add(frags.ID)
+		for p.knownBlocks.Cardinality() >= maxKnownBlocks {
+			p.knownBlocks.Pop()
 		}
 	default:
 		p.Log().Debug("Dropping block fragments propagation", "count", len(frags.Frags))
@@ -654,32 +637,6 @@ func (ps *peerSet) PeersWithoutTx(hash common.Hash) []*peer {
 	list := make([]*peer, 0, len(ps.peers))
 	for _, p := range ps.peers {
 		if !p.knownTxs.Contains(hash) {
-			list = append(list, p)
-		}
-	}
-	return list
-}
-
-func (ps *peerSet) PeersWithoutTxFrag(hash common.Hash) []*peer {
-	ps.lock.RLock()
-	defer ps.lock.RUnlock()
-
-	list := make([]*peer, 0, len(ps.peers))
-	for _, p := range ps.peers {
-		if !p.knownFrags.Contains(hash) {
-			list = append(list, p)
-		}
-	}
-	return list
-}
-
-func (ps *peerSet) PeersWithoutBlockFrag(hash common.Hash) []*peer {
-	ps.lock.RLock()
-	defer ps.lock.RUnlock()
-
-	list := make([]*peer, 0, len(ps.peers))
-	for _, p := range ps.peers {
-		if !p.knownFrags.Contains(hash) {
 			list = append(list, p)
 		}
 	}
