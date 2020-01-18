@@ -486,10 +486,15 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		for _, frag := range frags.Frags {
 			cnt = pm.fragpool.Insert(frag, frags.ID)
 		}
-		pm.fragsCh <- fragMsg{
+		select {
+		case pm.fragsCh <- fragMsg{
 			frags: reqfrag.Frags,
 			code:  msg.Code,
 			td:    reqfrag.TD,
+		}:
+			fmt.Printf("sent received block frags in channel, id: %x\n\n", reqfrag.Frags.ID)
+		default:
+			fmt.Printf("Block Frags in channel failed \n\n\n")
 		}
 		if cnt >= minFragNum {
 			blockrlp, flag := pm.fragpool.TryDecode(frags.ID, pm.rs)
