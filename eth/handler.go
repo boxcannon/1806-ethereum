@@ -958,14 +958,14 @@ func (pm *ProtocolManager) BroadcastTxs(txs types.Transactions) {
 func (pm *ProtocolManager) BroadcastReceivedFrags(frags *reedsolomon.Fragments, msgCode uint64, td *big.Int) {
 	fmt.Printf("frags in pm.BroadcastBlockFrags(), ID:%x, MsgCode:%d, td%d\n\n", frags.ID,msgCode,td)
 	switch msgCode {
-	case uint64(TxMsg):
+	case TxFragMsg:
 		fmt.Printf("frags in pm.BroadcastBlockFrags() switch, ID:%x, MsgCode:%d, td%d\n\n", frags.ID,msgCode,td)
 		peers := pm.peers.PeersWithoutTx(frags.ID)
 		for _, peer := range peers {
 			fmt.Printf("peer send tx frags id:%x \n\n", frags.ID)
 			peer.AsyncSendTxFrags(frags)
 		}
-	case uint64(NewBlockMsg):
+	case BlockFragMsg:
 		peers := pm.peers.PeersWithoutTx(frags.ID)
 		for _, peer := range peers {
 			peer.AsyncSendBlockFrags(frags, td)
