@@ -277,7 +277,7 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	// broadcast transactions
 	pm.txsCh = make(chan core.NewTxsEvent, txChanSize)
 	pm.fragsCh = make(chan fragMsg, fragsChanSize)
-	pm.txsSub = pm.txpool.SubscribeLocalTxsEvent(pm.txsCh)
+	pm.txsSub = pm.txpool.SubscribeNewTxsEvent(pm.txsCh)
 	go pm.txBroadcastLoop()
 
 	// broadcast mined blocks
@@ -950,8 +950,8 @@ func (pm *ProtocolManager) BroadcastTxs(txs types.Transactions) {
 	}
 }
 
-func (pm *ProtocolManager) BroadcastReceivedFrags(frags *reedsolomon.Fragments, msgcode uint64, td *big.Int) {
-	switch msgcode {
+func (pm *ProtocolManager) BroadcastReceivedFrags(frags *reedsolomon.Fragments, msgCode uint64, td *big.Int) {
+	switch msgCode {
 	case TxMsg:
 		peers := pm.peers.PeersWithoutTx(frags.ID)
 		for _, peer := range peers {
