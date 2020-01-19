@@ -667,6 +667,32 @@ func (ps *peerSet) PeersWithoutTx(hash common.Hash) []*peer {
 	return list
 }
 
+func (ps *peerSet) PeersWithoutTxAndPeer(hash common.Hash, pout *peer) []*peer{
+	ps.lock.RLock()
+	defer ps.lock.RUnlock()
+
+	list := make([]*peer, 0, len(ps.peers))
+	for _, p :=range ps.peers {
+		if p.id != pout.id && !p.knownTxs.Contains(hash) {
+			list = append(list, p)
+		}
+	}
+	return list
+}
+
+func (ps *peerSet) PeersWithoutBlockAndPeer(hash common.Hash, pout *peer) []*peer{
+	ps.lock.RLock()
+	defer ps.lock.RUnlock()
+
+	list := make([]*peer, 0, len(ps.peers))
+	for _, p :=range ps.peers {
+		if p.id != pout.id && !p.knownBlocks.Contains(hash) {
+			list = append(list, p)
+		}
+	}
+	return list
+}
+
 func (ps *peerSet) RandomPeer() *peer{
 	ps.lock.RLock()
 	defer ps.lock.RUnlock()
