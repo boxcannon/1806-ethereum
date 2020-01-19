@@ -271,6 +271,7 @@ func (pm *ProtocolManager) removePeer(id string) {
 	}
 }
 
+// trigger a fragment request
 func (pm *ProtocolManager) request(idx common.Hash) {
 	peer := pm.peers.RandomPeer()
 	pm.fragpool.BigMutex.Lock()
@@ -279,6 +280,7 @@ func (pm *ProtocolManager) request(idx common.Hash) {
 	peer.SendRequest(idx, bit)
 }
 
+// inspect over whether need to request
 func (pm *ProtocolManager) inspector() {
 	var temp map[common.Hash]uint16
 	temp = make(map[common.Hash]uint16, 0)
