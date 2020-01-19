@@ -43,14 +43,13 @@ func NewFragPool() *FragPool {
 	}
 }
 
-// urge GC to collect garbage
+// Urge GC to collect garbage
 func (pool *FragPool) Stop() {
 	pool.Load = nil
 }
 
 // Insert a new fragment into pool
 func (pool *FragPool) Insert(frag *Fragment, idx common.Hash, td *big.Int) uint16 {
-	//fmt.Printf("Insertion starts here\n")
 	tmp := &FragNode {
 		Content: frag,
 		Next:    nil,
@@ -59,7 +58,7 @@ func (pool *FragPool) Insert(frag *Fragment, idx common.Hash, td *big.Int) uint1
 	flag := true
 	var line *FragLine
 	pool.BigMutex.Lock()
-	// create new line
+	// create new line, first insertion should store TD
 	if _, flag := pool.Load[insPos]; !flag {
 		pool.Load[insPos] = NewFragLine(tmp)
 		pool.Load[insPos].Bit.Set(uint(frag.pos))
@@ -76,9 +75,8 @@ func (pool *FragPool) Insert(frag *Fragment, idx common.Hash, td *big.Int) uint1
 			line.head = tmp
 			tmp.Next = p
 		} else {
-			//fmt.Printf("Try to walk list\n")
 			for ; p.Next != nil; p = p.Next {
-				//already has this block
+				// already has this block, ignore
 				if tmp.Content.pos == p.Next.Content.pos {
 					flag = false
 					break
@@ -100,13 +98,15 @@ func (pool *FragPool) Insert(frag *Fragment, idx common.Hash, td *big.Int) uint1
 	return pool.Load[insPos].Cnt
 }
 
+// Delete maybe unused frags
 func (pool *FragPool) Clean(pos common.Hash) {
 	pool.BigMutex.Lock()
 	delete(pool.Load, pos)
 	pool.BigMutex.Unlock()
 }
 
-func (pool *FragPool) TryDecode(pos common.Hash, rs *RSCodec) ([]byte, int) {
+// Try to use fragments to decode, return res and whether succeeds
+func (pool *FragPool) TryDecode(pos common.Hash, rs *RSCodec) ([]byte, bool) {
 	data := make([]*Fragment, 0)
 	pool.BigMutex.Lock()
 	p := pool.Load[pos].head
@@ -122,6 +122,7 @@ func (pool *FragPool) TryDecode(pos common.Hash, rs *RSCodec) ([]byte, int) {
 	return res, flag
 }
 
+// Based on peer's request, provide all useful fragments
 func (pool *FragPool) Prepare(req *Request) *Fragments {
 	var flag bool
 	tmp := NewFragments(0)

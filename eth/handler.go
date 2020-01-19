@@ -468,7 +468,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if cnt >= minFragNum {
 			txRlp, flag := pm.fragpool.TryDecode(frags.ID, pm.rs)
 			// flag=1 means decode success
-			if flag == 1 {
+			if flag {
 				var tx types.Transaction
 				err = rlp.Decode(bytes.NewReader(txRlp), &tx)
 				if err != nil {
@@ -516,7 +516,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		if cnt >= minFragNum {
 			blockrlp, flag := pm.fragpool.TryDecode(frags.ID, pm.rs)
-			if flag == 1 {
+			if flag {
 				var block types.Block
 				if err = rlp.Decode(bytes.NewReader(blockrlp), &block); err != nil {
 					return errResp(ErrDecode, "%v: %v", msg, err)
