@@ -607,14 +607,14 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 					}
 				}
 				// Clean maybe unneeded trash
-				pm.decoded.mutex.Lock()
-				pm.decoded.queue = append(pm.decoded.queue, frags.ID)
-				for l := len(pm.decoded.queue); l > maxDecodeNum; l-- {
-					id := pm.decoded.queue[0]
-					pm.fragpool.Clean(id)
-					pm.decoded.queue = pm.decoded.queue[1:]
-				}
-				pm.decoded.mutex.Unlock()
+				//pm.decoded.mutex.Lock()
+				//pm.decoded.queue = append(pm.decoded.queue, frags.ID)
+				//for l := len(pm.decoded.queue); l > maxDecodeNum; l-- {
+				//	id := pm.decoded.queue[0]
+				//	pm.fragpool.Clean(id)
+				//	pm.decoded.queue = pm.decoded.queue[1:]
+				//}
+				//pm.decoded.mutex.Unlock()
 			} else {
 				panic("cannot RS decode")
 			}
