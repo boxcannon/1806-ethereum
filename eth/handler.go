@@ -460,11 +460,10 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if pm.txpool.CheckExistence(frags.ID) != nil {
 			break
 		}
-
+        p.MarkTransaction(frags.ID)
 		for _, frag := range frags.Frags {
 			fmt.Printf("\n Fragment::frag.Code here\n")
 			// Validate and mark the remote transaction
-			p.MarkFragment(frags.ID)
 			cnt = pm.fragpool.Insert(frag, frags.ID, nil)
 		}
 		if cnt >= minFragNum {
@@ -482,7 +481,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				if tx.Hash() != frags.ID {
 					return errResp(ErrDecode, "RS decode is wrong")
 				}
-				p.MarkTransaction(tx.Hash())
+
 				txs := make([]*types.Transaction, 1)
 				txs = append(txs, &tx)
 				errs := pm.txpool.AddRemotes(txs) // do not need
@@ -512,8 +511,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 		frags := reqfrag.Frags
+		p.MarkBlock(frags.ID)
 		for _, frag := range frags.Frags {
-			p.MarkFragment(frag.Hash())
 			cnt = pm.fragpool.Insert(frag, frags.ID, reqfrag.TD)
 		}
 		if cnt >= minFragNum {
@@ -543,7 +542,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				request.Block.ReceivedFrom = p
 
 				// Mark the peer as owning the block and schedule it for import
-				p.MarkBlock(request.Block.Hash())
 				pm.fetcher.Enqueue(p.id, request.Block)
 
 				// Assuming the block is importable by the peer, but possibly not yet done so,
