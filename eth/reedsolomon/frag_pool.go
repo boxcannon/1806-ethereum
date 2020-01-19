@@ -92,7 +92,7 @@ func (pool *FragPool) Clean(pos common.Hash) {
 	delete(pool.trial, pos)
 }
 
-func (pool *FragPool) TryDecode(pos common.Hash, rs *RSCodec) ([]byte, int) {
+func (pool *FragPool) TryDecode(pos common.Hash, rs *RSCodec) ([]byte, bool) {
 
 	data := make([]*Fragment, 0)
 	pool.load[pos].Lock()
