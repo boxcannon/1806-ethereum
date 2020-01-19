@@ -33,7 +33,7 @@ func NewFragLine(newNode *FragNode) *FragLine{
 		Bit:	bitset.New(EccSymbol+NumSymbol),
 		Cnt:	0,
 		Trial:  0,
-		TD:		nil,
+		TD:		new(big.Int),
 	}
 }
 
