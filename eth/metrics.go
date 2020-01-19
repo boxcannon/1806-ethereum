@@ -42,6 +42,10 @@ var (
 	propBlockInTrafficMeter   = metrics.NewRegisteredMeter("eth/prop/blocks/in/traffic", nil)
 	propBlockOutPacketsMeter  = metrics.NewRegisteredMeter("eth/prop/blocks/out/packets", nil)
 	propBlockOutTrafficMeter  = metrics.NewRegisteredMeter("eth/prop/blocks/out/traffic", nil)
+	reqFragInPacketsMeter   = metrics.NewRegisteredMeter("eth/req/frags/in/packets", nil)
+	reqFragInTrafficMeter   = metrics.NewRegisteredMeter("eth/req/frags/in/traffic", nil)
+	reqFragOutPacketsMeter  = metrics.NewRegisteredMeter("eth/req/frags/out/packets", nil)
+	reqFragOutTrafficMeter  = metrics.NewRegisteredMeter("eth/req/frags/out/traffic", nil)
 	reqHeaderInPacketsMeter   = metrics.NewRegisteredMeter("eth/req/headers/in/packets", nil)
 	reqHeaderInTrafficMeter   = metrics.NewRegisteredMeter("eth/req/headers/in/traffic", nil)
 	reqHeaderOutPacketsMeter  = metrics.NewRegisteredMeter("eth/req/headers/out/packets", nil)
@@ -116,6 +120,8 @@ func (rw *meteredMsgReadWriter) ReadMsg() (p2p.Msg, error) {
 		packets, traffic = propTxFragInPacketsMeter, propTxFragInTrafficMeter
 	case msg.Code == BlockFragMsg:
 		packets, traffic = propBlockFragInPacketsMeter, propBlockFragInTrafficMeter
+	case msg.Code == RequestFragMsg:
+		packets, traffic = reqFragInPacketsMeter, reqFragInTrafficMeter
 	}
 	packets.Mark(1)
 	traffic.Mark(int64(msg.Size))
@@ -145,9 +151,11 @@ func (rw *meteredMsgReadWriter) WriteMsg(msg p2p.Msg) error {
 	case msg.Code == TxMsg:
 		packets, traffic = propTxnOutPacketsMeter, propTxnOutTrafficMeter
 	case msg.Code == TxFragMsg:
-		packets, traffic = propTxFragOutPacketsMeter, propTxFragOutPacketsMeter
+		packets, traffic = propTxFragOutPacketsMeter, propTxFragOutTrafficMeter
 	case msg.Code == BlockFragMsg:
-		packets, traffic = propBlockFragOutPacketsMeter, propBlockFragOutPacketsMeter
+		packets, traffic = propBlockFragOutPacketsMeter, propBlockFragOutTrafficMeter
+	case msg.Code == RequestFragMsg:
+		packets, traffic = reqFragOutPacketsMeter, reqFragOutTrafficMeter
 	}
 	packets.Mark(1)
 	traffic.Mark(int64(msg.Size))

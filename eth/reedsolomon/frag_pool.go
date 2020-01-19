@@ -2,8 +2,11 @@ package reedsolomon
 
 import (
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/willf/bitset"
+	"math/big"
 	"sync"
 )
+
 
 type FragNode struct {
 	Content *Fragment
@@ -11,58 +14,66 @@ type FragNode struct {
 }
 
 type FragLine struct {
-	sync.Mutex
-	head *FragNode
+	mutex   sync.Mutex
+	head	*FragNode
+	Bit		*bitset.BitSet
+	Cnt		uint16
+	Trial	uint8
+	TD      *big.Int
 }
 
 type FragPool struct {
-	load  map[common.Hash]*FragLine
-	cnt   map[common.Hash]uint16
-	trial map[common.Hash]uint8
+	BigMutex	sync.Mutex
+	Load		map[common.Hash]*FragLine
 }
 
 func NewFragLine(newNode *FragNode) *FragLine{
 	return &FragLine {
-		Mutex: sync.Mutex{},
-		head:  newNode,
+		head:	newNode,
+		Bit:	bitset.New(EccSymbol+NumSymbol),
+		Cnt:	0,
+		Trial:  0,
+		TD:		nil,
 	}
 }
 
 func NewFragPool() *FragPool {
 	return &FragPool{
-		load:	make(map[common.Hash]*FragLine, 0),
-		cnt:    make(map[common.Hash]uint16, 0),
-		trial:	make(map[common.Hash]uint8, 0),
+		Load:  make(map[common.Hash]*FragLine, 0),
 	}
 }
 
 // urge GC to collect garbage
 func (pool *FragPool) Stop() {
-	pool.load = nil
-	pool.cnt = nil
-	pool.trial = nil
+	pool.Load = nil
 }
 
 // Insert a new fragment into pool
-func (pool *FragPool) Insert(frag *Fragment, idx common.Hash) uint16 {
+func (pool *FragPool) Insert(frag *Fragment, idx common.Hash, td *big.Int) uint16 {
 	//fmt.Printf("Insertion starts here\n")
-	tmp := &FragNode{
+	tmp := &FragNode {
 		Content: frag,
 		Next:    nil,
 	}
 	insPos := idx
 	flag := true
+	var line *FragLine
+	pool.BigMutex.Lock()
 	// create new line
-	if _, flag := pool.load[insPos]; !flag {
-		pool.load[insPos] = NewFragLine(tmp)
-		pool.cnt[insPos] = 0
-		pool.trial[insPos] = 0
+	if _, flag := pool.Load[insPos]; !flag {
+		pool.Load[insPos] = NewFragLine(tmp)
+		pool.Load[insPos].Bit.Set(uint(frag.pos))
+		// first insertion decides TD
+		pool.Load[insPos].TD = td
+		pool.BigMutex.Unlock()
 	} else {
-		pool.load[insPos].Lock()
-		defer pool.load[insPos].Unlock()
-		p := pool.load[insPos].head
+		p := pool.Load[insPos].head
+		line = pool.Load[insPos]
+		line.mutex.Lock()
+		defer line.mutex.Unlock()
+		pool.BigMutex.Unlock()
 		if tmp.Content.pos < p.Content.pos {
-			pool.load[insPos].head = tmp
+			line.head = tmp
 			tmp.Next = p
 		} else {
 			//fmt.Printf("Try to walk list\n")
@@ -82,25 +93,50 @@ func (pool *FragPool) Insert(frag *Fragment, idx common.Hash) uint16 {
 			}
 		}
 	}
-	if flag { pool.cnt[insPos]++ }
-	return pool.cnt[insPos]
+	if flag {
+		line.Cnt++
+		line.Bit.Set(uint(tmp.Content.pos))
+	}
+	return pool.Load[insPos].Cnt
 }
 
 func (pool *FragPool) Clean(pos common.Hash) {
-	delete(pool.load, pos)
-	delete(pool.cnt, pos)
-	delete(pool.trial, pos)
+	pool.BigMutex.Lock()
+	delete(pool.Load, pos)
+	pool.BigMutex.Unlock()
 }
 
 func (pool *FragPool) TryDecode(pos common.Hash, rs *RSCodec) ([]byte, int) {
-
 	data := make([]*Fragment, 0)
-	pool.load[pos].Lock()
-	p := pool.load[pos].head
+	pool.BigMutex.Lock()
+	p := pool.Load[pos].head
+	line := pool.Load[pos]
+	line.mutex.Lock()
+	defer line.mutex.Unlock()
+	pool.BigMutex.Unlock()
 	for ; p != nil; p = p.Next {
 		data = append(data, p.Content)
 	}
-	pool.load[pos].Unlock()
+	line.Trial++
 	res, flag := rs.SpliceAndDecode(data)
 	return res, flag
+}
+
+func (pool *FragPool) Prepare(req *Request) *Fragments {
+	var flag bool
+	tmp := NewFragments(0)
+	tmp.ID = req.ID
+	pool.BigMutex.Lock()
+	line := pool.Load[req.ID]
+	line.mutex.Lock()
+	defer line.mutex.Unlock()
+	pool.BigMutex.Unlock()
+	bits := line.Bit.Difference(req.load)
+	for p := line.head; p!= nil; p = p.Next {
+		flag = bits.Test(uint(p.Content.pos))
+		if flag {
+			tmp.Frags = append(tmp.Frags, p.Content)
+		}
+	}
+	return tmp
 }

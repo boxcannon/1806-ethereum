@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/willf/bitset"
 	"golang.org/x/crypto/sha3"
 	"io"
 	"sync/atomic"
@@ -19,9 +20,25 @@ type Fragment struct {
 	size atomic.Value
 }
 
+type Request struct {
+	load  *bitset.BitSet
+	ID    common.Hash
+
+	//caches
+	hash atomic.Value
+	size atomic.Value
+}
+
 func NewFragment(size int) *Fragment {
 	return &Fragment{
 		code: make([]byte, size),
+	}
+}
+
+func NewRequest(ID common.Hash, s *bitset.BitSet) *Request{
+	return &Request{
+		load: s,
+		ID:   ID,
 	}
 }
 
@@ -38,6 +55,8 @@ func (c *writeCounter) Write(b []byte) (int, error) {
 		pos:	0,
 	}
 }*/
+
+type FragmentList []*Fragment
 
 type Fragments struct {
 	Frags FragmentList
@@ -64,6 +83,11 @@ type extFragment struct {
 	Code []byte
 }
 
+type extRequest struct {
+	load  *bitset.BitSet
+	ID    common.Hash
+}
+
 func (frags *Fragments) DecodeRLP(s *rlp.Stream) error {
 	var ef extFragments
 	_, size, _ := s.Kind()
@@ -82,13 +106,6 @@ func (frags *Fragments) EncodeRLP(w io.Writer) error {
 	})
 }
 
-func (frag *Fragment) EncodeRLP(w io.Writer) error {
-	return rlp.Encode(w, extFragment{
-		Code: frag.code,
-		Pos:  frag.pos,
-	})
-}
-
 func (frag *Fragment) DecodeRLP(s *rlp.Stream) error {
 	var ef extFragment
 	_, size, _ := s.Kind()
@@ -98,6 +115,31 @@ func (frag *Fragment) DecodeRLP(s *rlp.Stream) error {
 	frag.code, frag.pos = ef.Code, ef.Pos
 	frag.size.Store(common.StorageSize(rlp.ListSize(size)))
 	return nil
+}
+
+func (frag *Fragment) EncodeRLP(w io.Writer) error {
+	return rlp.Encode(w, extFragment{
+		Code: frag.code,
+		Pos:  frag.pos,
+	})
+}
+
+func (req *Request) DecodeRLP(s *rlp.Stream) error {
+	var er extRequest
+	_, size, _ := s.Kind()
+	if err := s.Decode(&er); err != nil {
+		return err
+	}
+	req.load, req.ID = er.load, er.ID
+	req.size.Store(common.StorageSize(rlp.ListSize(size)))
+	return nil
+}
+
+func (req *Request) EncodeRLP(w io.Writer) error {
+	return rlp.Encode(w, extRequest{
+		load:	req.load,
+		ID:		req.ID,
+	})
 }
 
 func (frags *Fragments) Size() common.StorageSize {
@@ -119,6 +161,17 @@ func (fragment *Fragment) Size() common.StorageSize {
 	fragment.size.Store(common.StorageSize(c))
 	return common.StorageSize(c)
 }
+
+func (req *Request) Size() common.StorageSize {
+	if size := req.size.Load(); size != nil {
+		return size.(common.StorageSize)
+	}
+	c := writeCounter(0)
+	rlp.Encode(&c, req)
+	req.size.Store(common.StorageSize(c))
+	return common.StorageSize(c)
+}
+
 func (frags *Fragments) Hash() common.Hash {
 	if hash := frags.hash.Load(); hash != nil {
 		return hash.(common.Hash)
@@ -137,17 +190,15 @@ func (fragment *Fragment) Hash() common.Hash {
 	return v
 }
 
-type FragmentList []*Fragment
-
-func (s FragmentList) Len() int { return len(s) }
-
-func (s FragmentList) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
-
-// GetRlp implements Rlpable and returns the i'th element of s in rlp.
-func (s FragmentList) GetRlp(i int) []byte {
-	enc, _ := rlp.EncodeToBytes(s[i])
-	return enc
+func (req *Request) Hash() common.Hash {
+	if hash := req.hash.Load(); hash != nil {
+		return hash.(common.Hash)
+	}
+	v := rlpHash(req)
+	req.hash.Store(v)
+	return v
 }
+
 func PrintFrags(frags *Fragments) {
 	for _, frag := range frags.Frags {
 		fmt.Printf("code: %x,pos: %d\n", frag.code, frag.pos)
