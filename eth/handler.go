@@ -299,26 +299,26 @@ func (pm *ProtocolManager) removePeer(id string) {
 //}
 
 // inspect over whether need to request
-func (pm *ProtocolManager) inspector() {
-	var temp map[common.Hash]uint16
-	temp = make(map[common.Hash]uint16, 0)
-	for {
-		time.Sleep(time.Second)
-		pm.fragpool.BigMutex.Lock()
-		defer pm.fragpool.BigMutex.Unlock()
-		for k,v := range pm.fragpool.Load {
-			if _, flag := temp[k]; !flag {
-				temp[k] = v.Cnt
-			} else {
-				if temp[k] != v.Cnt {
-					temp[k] = v.Cnt
-				} else {
-					pm.request(k)
-				}
-			}
-		}
-	}
-}
+//func (pm *ProtocolManager) inspector() {
+//	var temp map[common.Hash]uint16
+//	temp = make(map[common.Hash]uint16, 0)
+//	for {
+//		time.Sleep(time.Second)
+//		pm.fragpool.BigMutex.Lock()
+//		defer pm.fragpool.BigMutex.Unlock()
+//		for k,v := range pm.fragpool.Load {
+//			if _, flag := temp[k]; !flag {
+//				temp[k] = v.Cnt
+//			} else {
+//				if temp[k] != v.Cnt {
+//					temp[k] = v.Cnt
+//				} else {
+//					pm.request(k)
+//				}
+//			}
+//		}
+//	}
+//}
 
 func (pm *ProtocolManager) Start(maxPeers int) {
 	pm.maxPeers = maxPeers
