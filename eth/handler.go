@@ -290,13 +290,13 @@ func (pm *ProtocolManager) removePeer(id string) {
 }
 
 // trigger a fragment request
-func (pm *ProtocolManager) request(idx common.Hash) {
-	peer := pm.peers.RandomPeer()
-	pm.fragpool.BigMutex.Lock()
-	bit := pm.fragpool.Load[idx].Bit
-	pm.fragpool.BigMutex.Unlock()
-	peer.SendRequest(idx, bit)
-}
+//func (pm *ProtocolManager) request(idx common.Hash) {
+//	peer := pm.peers.RandomPeer()
+//	pm.fragpool.BigMutex.Lock()
+//	bit := pm.fragpool.Load[idx].Bit
+//	pm.fragpool.BigMutex.Unlock()
+//	peer.SendRequest(idx, bit)
+//}
 
 // inspect over whether need to request
 func (pm *ProtocolManager) inspector() {
