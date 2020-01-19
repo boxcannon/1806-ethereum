@@ -3,6 +3,7 @@ package reedsolomon
 import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/willf/bitset"
+	"math/big"
 	"sync"
 )
 
@@ -18,6 +19,7 @@ type FragLine struct {
 	Bit		*bitset.BitSet
 	Cnt		uint16
 	Trial	uint8
+	TD      *big.Int
 }
 
 type FragPool struct {
@@ -31,6 +33,7 @@ func NewFragLine(newNode *FragNode) *FragLine{
 		Bit:	bitset.New(EccSymbol+NumSymbol),
 		Cnt:	0,
 		Trial:  0,
+		TD:		nil,
 	}
 }
 
@@ -46,7 +49,7 @@ func (pool *FragPool) Stop() {
 }
 
 // Insert a new fragment into pool
-func (pool *FragPool) Insert(frag *Fragment, idx common.Hash) uint16 {
+func (pool *FragPool) Insert(frag *Fragment, idx common.Hash, td *big.Int) uint16 {
 	//fmt.Printf("Insertion starts here\n")
 	tmp := &FragNode {
 		Content: frag,
@@ -60,6 +63,8 @@ func (pool *FragPool) Insert(frag *Fragment, idx common.Hash) uint16 {
 	if _, flag := pool.Load[insPos]; !flag {
 		pool.Load[insPos] = NewFragLine(tmp)
 		pool.Load[insPos].Bit.Set(uint(frag.pos))
+		// first insertion decides TD
+		pool.Load[insPos].TD = td
 		pool.BigMutex.Unlock()
 	} else {
 		p := pool.Load[insPos].head

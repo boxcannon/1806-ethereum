@@ -58,7 +58,7 @@ func (r *RSCodec) Decode(data []int, errPos []int) ([]int, []int, int) {
 	//func (r *RSCodec) Decode(data []int) ([]int, []int) {
 	decoded := data
 	if len(data) > 255 {
-		log.Fatalf("Message is too long, max allowed size is %d\n", 255)
+		log.Println("Message is too long, max allowed size is %d\n", 255)
 	}
 
 	synd := calcSyndromes(data, r.EccSymbols)
