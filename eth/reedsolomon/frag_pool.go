@@ -2,7 +2,6 @@ package reedsolomon
 
 import (
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/willf/bitset"
 	"math/big"
 	"sync"
 )
@@ -16,7 +15,7 @@ type FragNode struct {
 type FragLine struct {
 	mutex   sync.Mutex
 	head	*FragNode
-	Bit		*bitset.BitSet
+	//Bit		*bitset.BitSet
 	Cnt		uint16
 	Trial	uint8
 	TD      *big.Int
@@ -30,7 +29,7 @@ type FragPool struct {
 func NewFragLine(newNode *FragNode) *FragLine{
 	return &FragLine {
 		head:	newNode,
-		Bit:	bitset.New(EccSymbol+NumSymbol),
+		//Bit:	bitset.New(EccSymbol+NumSymbol),
 		Cnt:	0,
 		Trial:  0,
 		TD:		new(big.Int),
@@ -61,7 +60,7 @@ func (pool *FragPool) Insert(frag *Fragment, idx common.Hash, td *big.Int) uint1
 	// create new line, first insertion should store TD
 	if _, flag := pool.Load[insPos]; !flag {
 		pool.Load[insPos] = NewFragLine(tmp)
-		pool.Load[insPos].Bit.Set(uint(frag.pos))
+		//pool.Load[insPos].Bit.Set(uint(frag.pos))
 		// first insertion decides TD
 		pool.Load[insPos].TD = td
 		pool.BigMutex.Unlock()
@@ -93,7 +92,7 @@ func (pool *FragPool) Insert(frag *Fragment, idx common.Hash, td *big.Int) uint1
 	}
 	if flag {
 		line.Cnt++
-		line.Bit.Set(uint(tmp.Content.pos))
+		//line.Bit.Set(uint(tmp.Content.pos))
 	}
 	return pool.Load[insPos].Cnt
 }
@@ -132,9 +131,9 @@ func (pool *FragPool) Prepare(req *Request) *Fragments {
 	line.mutex.Lock()
 	defer line.mutex.Unlock()
 	pool.BigMutex.Unlock()
-	bits := line.Bit.Difference(req.load)
+	//bits := line.Bit.Difference(req.load)
 	for p := line.head; p!= nil; p = p.Next {
-		flag = bits.Test(uint(p.Content.pos))
+		//flag = bits.Test(uint(p.Content.pos))
 		if flag {
 			tmp.Frags = append(tmp.Frags, p.Content)
 		}
