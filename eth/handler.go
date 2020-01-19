@@ -526,7 +526,14 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				}
 				var request newBlockData
 				request.Block = &block
-				request.TD = reqfrag.TD
+				if reqfrag.TD != nil {
+					request.TD = reqfrag.TD
+				} else {
+					// Frags come from former Request
+					pm.fragpool.BigMutex.Lock()
+					request.TD = pm.fragpool.Load[frags.ID].TD
+					pm.fragpool.BigMutex.Unlock()
+				}
 				if err = request.sanityCheck(); err != nil {
 					return err
 				}
