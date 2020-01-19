@@ -330,7 +330,7 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	// broadcast mined blocks
 	pm.minedBlockSub = pm.eventMux.Subscribe(core.NewMinedBlockEvent{})
 	go pm.minedBroadcastLoop()
-	go pm.inspector()
+	//go pm.inspector()
 
 	// broadcast fragments
 	pm.fragsCh = make(chan fragMsg, fragsChanSize)
