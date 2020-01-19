@@ -65,8 +65,6 @@ const (
 	BlockFragMsg       = 0x12
 	RequestTxFragMsg   = 0x13
 	RequestBlockFragMsg= 0x14
-
-
 )
 
 type errCode int

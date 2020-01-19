@@ -27,7 +27,7 @@ func (r *RSCodec) DivideAndEncode(bytedata []byte) []*Fragment {
 	return res
 }
 
-func (r *RSCodec) SpliceAndDecode(dataCode []*Fragment) ([]byte, int) {
+func (r *RSCodec) SpliceAndDecode(dataCode []*Fragment) ([]byte, bool) {
 	dataLen := len(dataCode)
 	m := len(dataCode[0].code)
 	tmp := make([][]int, m)
@@ -40,7 +40,7 @@ func (r *RSCodec) SpliceAndDecode(dataCode []*Fragment) ([]byte, int) {
 		for j := 0; j < m; j++ {
 			if flag[pos] == 1 && tmp[j][pos] != int(dataCode[i].code[j]) {
 				log.Println("Fragments with the same position are received twice and they are different.")
-				return nil, 0
+				return nil, false
 			}
 			tmp[j][pos] = int(dataCode[i].code[j])
 		}
@@ -59,7 +59,7 @@ func (r *RSCodec) SpliceAndDecode(dataCode []*Fragment) ([]byte, int) {
 		sucTmp := 1
 		tmpRes[j], _, sucTmp = r.Decode(tmp[j], errPos)
 		if sucTmp == 0 {
-			return nil, 0
+			return nil, false
 		}
 		for _, i := range tmpRes[j] {
 			if littleEndian {
@@ -76,5 +76,5 @@ func (r *RSCodec) SpliceAndDecode(dataCode []*Fragment) ([]byte, int) {
 			break
 		}
 	}
-	return ret[0:i], 1
+	return ret[0:i], true
 }

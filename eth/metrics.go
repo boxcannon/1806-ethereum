@@ -42,10 +42,14 @@ var (
 	propBlockInTrafficMeter   = metrics.NewRegisteredMeter("eth/prop/blocks/in/traffic", nil)
 	propBlockOutPacketsMeter  = metrics.NewRegisteredMeter("eth/prop/blocks/out/packets", nil)
 	propBlockOutTrafficMeter  = metrics.NewRegisteredMeter("eth/prop/blocks/out/traffic", nil)
-	reqFragInPacketsMeter   = metrics.NewRegisteredMeter("eth/req/frags/in/packets", nil)
-	reqFragInTrafficMeter   = metrics.NewRegisteredMeter("eth/req/frags/in/traffic", nil)
-	reqFragOutPacketsMeter  = metrics.NewRegisteredMeter("eth/req/frags/out/packets", nil)
-	reqFragOutTrafficMeter  = metrics.NewRegisteredMeter("eth/req/frags/out/traffic", nil)
+	reqBlockFragInPacketsMeter   = metrics.NewRegisteredMeter("eth/req/frags/in/packets", nil)
+	reqBlockFragInTrafficMeter   = metrics.NewRegisteredMeter("eth/req/frags/in/traffic", nil)
+	reqBlockFragOutPacketsMeter  = metrics.NewRegisteredMeter("eth/req/frags/out/packets", nil)
+	reqBlockFragOutTrafficMeter  = metrics.NewRegisteredMeter("eth/req/frags/out/traffic", nil)
+	reqTxFragInPacketsMeter   = metrics.NewRegisteredMeter("eth/req/frags/in/packets", nil)
+	reqTxFragInTrafficMeter   = metrics.NewRegisteredMeter("eth/req/frags/in/traffic", nil)
+	reqTxFragOutPacketsMeter  = metrics.NewRegisteredMeter("eth/req/frags/out/packets", nil)
+	reqTxFragOutTrafficMeter  = metrics.NewRegisteredMeter("eth/req/frags/out/traffic", nil)
 	reqHeaderInPacketsMeter   = metrics.NewRegisteredMeter("eth/req/headers/in/packets", nil)
 	reqHeaderInTrafficMeter   = metrics.NewRegisteredMeter("eth/req/headers/in/traffic", nil)
 	reqHeaderOutPacketsMeter  = metrics.NewRegisteredMeter("eth/req/headers/out/packets", nil)
@@ -120,8 +124,10 @@ func (rw *meteredMsgReadWriter) ReadMsg() (p2p.Msg, error) {
 		packets, traffic = propTxFragInPacketsMeter, propTxFragInTrafficMeter
 	case msg.Code == BlockFragMsg:
 		packets, traffic = propBlockFragInPacketsMeter, propBlockFragInTrafficMeter
-	case msg.Code == RequestFragMsg:
-		packets, traffic = reqFragInPacketsMeter, reqFragInTrafficMeter
+	case msg.Code == RequestTxFragMsg:
+		packets, traffic = reqTxFragInPacketsMeter, reqTxFragInTrafficMeter
+	case msg.Code == RequestBlockFragMsg:
+		packets, traffic = reqBlockFragInPacketsMeter, reqBlockFragInTrafficMeter
 	}
 	packets.Mark(1)
 	traffic.Mark(int64(msg.Size))
@@ -154,8 +160,10 @@ func (rw *meteredMsgReadWriter) WriteMsg(msg p2p.Msg) error {
 		packets, traffic = propTxFragOutPacketsMeter, propTxFragOutTrafficMeter
 	case msg.Code == BlockFragMsg:
 		packets, traffic = propBlockFragOutPacketsMeter, propBlockFragOutTrafficMeter
-	case msg.Code == RequestFragMsg:
-		packets, traffic = reqFragOutPacketsMeter, reqFragOutTrafficMeter
+	case msg.Code == RequestTxFragMsg:
+		packets, traffic = reqTxFragOutPacketsMeter, reqTxFragOutTrafficMeter
+	case msg.Code == RequestBlockFragMsg:
+		packets, traffic = reqBlockFragOutPacketsMeter, reqBlockFragOutTrafficMeter
 	}
 	packets.Mark(1)
 	traffic.Mark(int64(msg.Size))

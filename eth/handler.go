@@ -288,6 +288,7 @@ func (pm *ProtocolManager) removePeer(id string) {
 	}
 }
 
+// trigger a fragment request
 func (pm *ProtocolManager) request(idx common.Hash) {
 	peer := pm.peers.RandomPeer()
 	pm.fragpool.BigMutex.Lock()
@@ -296,6 +297,7 @@ func (pm *ProtocolManager) request(idx common.Hash) {
 	peer.SendRequest(idx, bit)
 }
 
+// inspect over whether need to request
 func (pm *ProtocolManager) inspector() {
 	var temp map[common.Hash]uint16
 	temp = make(map[common.Hash]uint16, 0)
@@ -480,11 +482,10 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if pm.txpool.CheckExistence(frags.ID) != nil {
 			break
 		}
-		fmt.Printf("Received transaction frags : %x\n", frags.ID)
-		reedsolomon.PrintFrags(&frags)
+        p.MarkTransaction(frags.ID)
 		for _, frag := range frags.Frags {
+			fmt.Printf("\n Fragment::frag.Code here\n")
 			// Validate and mark the remote transaction
-			p.MarkTransaction(frags.ID)
 			cnt = pm.fragpool.Insert(frag, frags.ID, nil)
 		}
 		select {
@@ -500,7 +501,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if cnt >= minFragNum {
 			txRlp, flag := pm.fragpool.TryDecode(frags.ID, pm.rs)
 			// flag=1 means decode success
-			if flag == 1 {
+			if flag {
 				var tx types.Transaction
 				err = rlp.Decode(bytes.NewReader(txRlp), &tx)
 				if err != nil {
@@ -512,7 +513,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				if tx.Hash() != frags.ID {
 					return errResp(ErrDecode, "RS decode is wrong")
 				}
-				p.MarkTransaction(tx.Hash())
+
 				txs := make([]*types.Transaction, 1)
 				txs = append(txs, &tx)
 				errs := pm.txpool.AddRemotes(txs) // do not need
@@ -541,11 +542,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 		frags := reqfrag.Frags
-		fmt.Printf("Received block frags : %x\n", frags.ID)
-		reedsolomon.PrintFrags(frags)
 		p.MarkBlock(frags.ID)
 		for _, frag := range frags.Frags {
-			p.MarkFragment(frag.Hash())
 			cnt = pm.fragpool.Insert(frag, frags.ID, reqfrag.TD)
 		}
 		select {
@@ -560,7 +558,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		if cnt >= minFragNum {
 			blockrlp, flag := pm.fragpool.TryDecode(frags.ID, pm.rs)
-			if flag == 1 {
+			if flag {
 				var block types.Block
 				if err = rlp.Decode(bytes.NewReader(blockrlp), &block); err != nil {
 					return errResp(ErrDecode, "%v: %v", msg, err)
@@ -585,7 +583,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				request.Block.ReceivedFrom = p
 
 				// Mark the peer as owning the block and schedule it for import
-				p.MarkBlock(request.Block.Hash())
 				pm.fetcher.Enqueue(p.id, request.Block)
 
 				// Assuming the block is importable by the peer, but possibly not yet done so,
@@ -603,7 +600,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 					// scenario should easily be covered by the fetcher.
 					currentBlock := pm.blockchain.CurrentBlock()
 					if trueTD.Cmp(pm.blockchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())) > 0 {
-						fmt.Printf("BlockFragMSg :: Start synchronoise block id : %x\n\n\n", request.Block.Hash())
 						go pm.synchronise(p)
 					}
 				}
@@ -990,7 +986,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			// scenario should easily be covered by the fetcher.
 			currentBlock := pm.blockchain.CurrentBlock()
 			if trueTD.Cmp(pm.blockchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())) > 0 {
-				fmt.Printf("NewBlockMSg :: Start synchronoise block id : %x\n\n\n", request.Block.Hash())
 				go pm.synchronise(p)
 			}
 		}

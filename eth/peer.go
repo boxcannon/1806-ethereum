@@ -229,7 +229,7 @@ func (p *peer) MarkFragment(hash common.Hash) {
 
 func (p *peer) SendRequest(idx common.Hash, s *bitset.BitSet) {
 	tmp := reedsolomon.NewRequest(idx, s)
-	// Try to send proper msg.code
+	// Try to send proper msg.code, may crash with almost 0 probability?
 	if p.knownTxs.Contains(idx) {
 		p2p.Send(p.rw, RequestTxFragMsg, tmp)
 	} else {
