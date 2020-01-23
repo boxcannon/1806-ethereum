@@ -544,6 +544,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 		frags := reqfrag.Frags
+		fmt.Printf("block frag received:")
+		reedsolomon.PrintFrags(frags)
 		//p.MarkBlock(frags.ID)
 		for _, frag := range frags.Frags {
 			cnt = pm.fragpool.Insert(frag, frags.ID)
@@ -571,6 +573,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				}
 				var request newBlockData
 				request.Block = &block
+				fmt.Printf("RS decode block successfully, block id is : %x\n\n", block.Hash())
 				//if reqfrag.TD != nil {
 				request.TD = reqfrag.TD
 				//} else {
