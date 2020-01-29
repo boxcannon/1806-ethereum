@@ -96,6 +96,8 @@ func (pool *FragPool) Insert(frag *Fragment, idx common.Hash, td *big.Int) uint1
 		line.Cnt++
 		line.Bit.Set(uint(tmp.Content.pos))
 	}
+	pool.BigMutex.Lock()
+	defer pool.BigMutex.Unlock()
 	return pool.Load[insPos].Cnt
 }
 
