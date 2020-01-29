@@ -1080,6 +1080,7 @@ func (pm *ProtocolManager) BroadcastTxs(txs types.Transactions) {
 	}
 }
 
+
 func (pm *ProtocolManager) BroadcastReceivedFrags(frags *reedsolomon.Fragments, msgCode uint64, from *peer, td *big.Int) {
 	fmt.Printf("frags in pm.BroadcastReceivedFrags(), ID:%x, MsgCode:%d, td%d\n\n", frags.ID,msgCode,td)
 	switch msgCode {
