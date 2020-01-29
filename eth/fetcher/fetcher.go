@@ -652,7 +652,7 @@ func (f *Fetcher) insert(peer string, block *types.Block) {
 		case nil:
 			// All ok, quickly propagate to our peers
 			propBroadcastOutTimer.UpdateSince(block.ReceivedAt)
-			go f.broadcastBlock(block, true)
+			//go f.broadcastBlock(block, true)
 
 		case consensus.ErrFutureBlock:
 			// Weird future block, don't fail, but neither propagate
