@@ -77,6 +77,7 @@ var (
 type fragMsg struct {
 	frags *reedsolomon.Fragments
 	code  uint64
+	from  *peer
 	td    *big.Int
 }
 
@@ -330,7 +331,7 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	// broadcast mined blocks
 	pm.minedBlockSub = pm.eventMux.Subscribe(core.NewMinedBlockEvent{})
 	go pm.minedBroadcastLoop()
-	go pm.inspector()
+	//go pm.inspector()
 
 	// broadcast fragments
 	pm.fragsCh = make(chan fragMsg, fragsChanSize)
@@ -482,7 +483,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if pm.txpool.CheckExistence(frags.ID) != nil {
 			break
 		}
-        p.MarkTransaction(frags.ID)
+        //p.MarkTransaction(frags.ID)
 		for _, frag := range frags.Frags {
 			fmt.Printf("\n Fragment::frag.Code here\n")
 			// Validate and mark the remote transaction
@@ -492,6 +493,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		case pm.fragsCh <- fragMsg{
 			frags: &frags,
 			code:  msg.Code,
+			from: p,
 			td:    nil,
 		}:
 			fmt.Printf("Tx Frags in channel\n\n\n")
@@ -542,7 +544,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 		frags := reqfrag.Frags
-		p.MarkBlock(frags.ID)
+		//p.MarkBlock(frags.ID)
 		for _, frag := range frags.Frags {
 			cnt = pm.fragpool.Insert(frag, frags.ID, reqfrag.TD)
 		}
@@ -550,6 +552,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		case pm.fragsCh <- fragMsg{
 			frags: reqfrag.Frags,
 			code:  msg.Code,
+			from: p,
 			td:    reqfrag.TD,
 		}:
 			fmt.Printf("sent received block frags in channel, id: %x\n\n", reqfrag.Frags.ID)
@@ -1074,17 +1077,16 @@ func (pm *ProtocolManager) BroadcastTxs(txs types.Transactions) {
 	}
 }
 
-func (pm *ProtocolManager) BroadcastReceivedFrags(frags *reedsolomon.Fragments, msgCode uint64, td *big.Int) {
+func (pm *ProtocolManager) BroadcastReceivedFrags(frags *reedsolomon.Fragments, msgCode uint64,from *peer, td *big.Int) {
 	fmt.Printf("frags in pm.BroadcastReceivedFrags(), ID:%x, MsgCode:%d, td%d\n\n", frags.ID,msgCode,td)
 	switch msgCode {
 	case TxFragMsg:
-		peers := pm.peers.PeersWithoutTx(frags.ID)
+		peers := pm.peers.PeersWithoutTxAndPeer(frags.ID, from)
 		for _, peer := range peers {
-			fmt.Printf("peer send tx frags id:%x \n\n", frags.ID)
 			peer.AsyncSendTxFrags(frags)
 		}
 	case BlockFragMsg:
-		peers := pm.peers.PeersWithoutBlock(frags.ID)
+		peers := pm.peers.PeersWithoutBlockAndPeer(frags.ID, from)
 		for _, peer := range peers {
 			peer.AsyncSendBlockFrags(frags, td)
 		}
@@ -1230,7 +1232,7 @@ func (pm *ProtocolManager) fragsBroadcastLoop() {
 		select {
 		case fragMsg := <-pm.fragsCh:
 			fmt.Printf("Broadcast Received Fragments ID: %x, MsgCode: %d\n\n", fragMsg.frags.ID, fragMsg.code)
-			pm.BroadcastReceivedFrags(fragMsg.frags, fragMsg.code, fragMsg.td)
+			pm.BroadcastReceivedFrags(fragMsg.frags, fragMsg.code,fragMsg.from, fragMsg.td)
 		case <-pm.quitFragsBroadcast:
 			return
 		}

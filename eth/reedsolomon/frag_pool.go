@@ -33,7 +33,7 @@ func NewFragLine(newNode *FragNode) *FragLine{
 		Bit:	bitset.New(EccSymbol+NumSymbol),
 		Cnt:	0,
 		Trial:  0,
-		TD:		nil,
+		TD:		new(big.Int),
 	}
 }
 
@@ -59,11 +59,12 @@ func (pool *FragPool) Insert(frag *Fragment, idx common.Hash, td *big.Int) uint1
 	var line *FragLine
 	pool.BigMutex.Lock()
 	// create new line, first insertion should store TD
-	if _, flag := pool.Load[insPos]; !flag {
+	if _, ok := pool.Load[insPos]; !ok {
 		pool.Load[insPos] = NewFragLine(tmp)
 		pool.Load[insPos].Bit.Set(uint(frag.pos))
 		// first insertion decides TD
-		pool.Load[insPos].TD = td
+		line = pool.Load[insPos]
+		//pool.Load[insPos].TD = td
 		pool.BigMutex.Unlock()
 	} else {
 		p := pool.Load[insPos].head
