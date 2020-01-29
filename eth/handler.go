@@ -131,6 +131,7 @@ type ProtocolManager struct {
 	txsyncCh          chan *txsync
 	quitSync          chan struct{}
 	quitFragsBroadcast chan struct{}
+	quitInspector chan struct{}
 	noMorePeers       chan struct{}
 
 	// wait group is used for graceful shutdowns during downloading
@@ -160,6 +161,7 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 		txsyncCh:    make(chan *txsync),
 		quitSync:    make(chan struct{}),
 		quitFragsBroadcast: make(chan struct{}),
+		quitInspector: make(chan struct{}),
 	}
 	if mode == downloader.FullSync {
 		// The database seems empty as the current block is the genesis. Yet the fast
@@ -306,7 +308,7 @@ func (pm *ProtocolManager) inspector() {
 		time.Sleep(time.Second)
 		pm.fragpool.BigMutex.Lock()
 		defer pm.fragpool.BigMutex.Unlock()
-		for k,v := range pm.fragpool.Load {
+		for k, v := range pm.fragpool.Load {
 			if _, flag := temp[k]; !flag {
 				temp[k] = v.Cnt
 			} else {
@@ -316,6 +318,10 @@ func (pm *ProtocolManager) inspector() {
 					pm.request(k)
 				}
 			}
+		}
+		select {
+		case <-pm.quitInspector:
+			return
 		}
 	}
 }
@@ -331,7 +337,7 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	// broadcast mined blocks
 	pm.minedBlockSub = pm.eventMux.Subscribe(core.NewMinedBlockEvent{})
 	go pm.minedBroadcastLoop()
-	//go pm.inspector()
+	go pm.inspector()
 
 	// broadcast fragments
 	pm.fragsCh = make(chan fragMsg, fragsChanSize)
@@ -353,6 +359,7 @@ func (pm *ProtocolManager) Stop() {
 
 	// Quit fetcher, txsyncLoop.
 	close(pm.quitSync)
+	close(pm.quitInspector)
 	close(pm.quitFragsBroadcast)
 
 	// Disconnect existing sessions.
