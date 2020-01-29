@@ -66,8 +66,11 @@ const (
 	// maximum number of decoded Fragments to store
 	maxDecodeNum = 1024
 
-	//number or Fragments each peer to send
+	// number or Fragments each peer to send
 	PeerFragsNum = 20
+
+	// time intervall to force request.
+	forceRequestCycle = time.Second
 )
 
 var (
@@ -304,25 +307,29 @@ func (pm *ProtocolManager) request(idx common.Hash) {
 func (pm *ProtocolManager) inspector() {
 	var temp map[common.Hash]uint16
 	temp = make(map[common.Hash]uint16, 0)
+
+	forceRequest := time.NewTicker(forceRequestCycle)
+	defer forceRequest.Stop()
+
 	for {
-		time.Sleep(100 * time.Microsecond)
-		pm.fragpool.BigMutex.Lock()
-		for k, v := range pm.fragpool.Load {
-			if _, flag := temp[k]; !flag {
-				temp[k] = v.Cnt
-			} else {
-				if temp[k] != v.Cnt {
+		select{
+		case <-forceRequest.C:
+			pm.fragpool.BigMutex.Lock()
+			for k, v := range pm.fragpool.Load {
+				if _, flag := temp[k]; !flag {
 					temp[k] = v.Cnt
 				} else {
-					pm.request(k)
+					if temp[k] != v.Cnt {
+						temp[k] = v.Cnt
+					} else {
+						go pm.request(k)
+					}
 				}
 			}
+			pm.fragpool.BigMutex.Unlock()
+		case <-pm.quitInspector:
+			return
 		}
-		//select {
-		//case <-pm.quitInspector:
-		//	return
-		//}
-		pm.fragpool.BigMutex.Unlock()
 	}
 }
 
