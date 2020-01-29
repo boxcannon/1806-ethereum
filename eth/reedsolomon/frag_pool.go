@@ -64,7 +64,7 @@ func (pool *FragPool) Insert(frag *Fragment, idx common.Hash, td *big.Int) uint1
 		pool.Load[insPos].Bit.Set(uint(frag.pos))
 		// first insertion decides TD
 		line = pool.Load[insPos]
-		//pool.Load[insPos].TD = td
+		pool.Load[insPos].TD = td
 		pool.BigMutex.Unlock()
 	} else {
 		p := pool.Load[insPos].head
