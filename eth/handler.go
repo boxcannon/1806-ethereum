@@ -305,6 +305,7 @@ func (pm *ProtocolManager) inspector() {
 	var temp map[common.Hash]uint16
 	temp = make(map[common.Hash]uint16, 0)
 	for {
+		time.Sleep(100 * time.Microsecond)
 		pm.fragpool.BigMutex.Lock()
 		for k, v := range pm.fragpool.Load {
 			if _, flag := temp[k]; !flag {
