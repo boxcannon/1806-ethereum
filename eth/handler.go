@@ -318,10 +318,10 @@ func (pm *ProtocolManager) inspector() {
 				}
 			}
 		}
-		select {
-		case <-pm.quitInspector:
-			return
-		}
+		//select {
+		//case <-pm.quitInspector:
+		//	return
+		//}
 		pm.fragpool.BigMutex.Unlock()
 	}
 }
