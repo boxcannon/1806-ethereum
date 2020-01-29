@@ -235,7 +235,7 @@ func testGetBlockBodies(t *testing.T, protocol int) {
 	}
 	// Run each of the tests and verify the results against the chain
 	for i, tt := range tests {
-		// Collect the hashes to request, and the response to expect
+		// Collect the hashes to requestFrags, and the response to expect
 		hashes, seen := []common.Hash{}, make(map[int64]bool)
 		bodies := []*blockBody{}
 
@@ -261,7 +261,7 @@ func testGetBlockBodies(t *testing.T, protocol int) {
 				bodies = append(bodies, &blockBody{Transactions: block.Transactions(), Uncles: block.Uncles()})
 			}
 		}
-		// Send the hash request and verify the response
+		// Send the hash requestFrags and verify the response
 		p2p.Send(peer.app, 0x05, hashes)
 		if err := p2p.ExpectMsg(peer.app, 0x06, bodies); err != nil {
 			t.Errorf("test %d: bodies mismatch: %v", i, err)
@@ -411,7 +411,7 @@ func testGetReceipt(t *testing.T, protocol int) {
 	peer, _ := newTestPeer("peer", protocol, pm, true)
 	defer peer.close()
 
-	// Collect the hashes to request, and the response to expect
+	// Collect the hashes to requestFrags, and the response to expect
 	hashes, receipts := []common.Hash{}, []types.Receipts{}
 	for i := uint64(0); i <= pm.blockchain.CurrentBlock().NumberU64(); i++ {
 		block := pm.blockchain.GetBlockByNumber(i)
@@ -419,7 +419,7 @@ func testGetReceipt(t *testing.T, protocol int) {
 		hashes = append(hashes, block.Hash())
 		receipts = append(receipts, pm.blockchain.GetReceiptsByHash(block.Hash()))
 	}
-	// Send the hash request and verify the response
+	// Send the hash requestFrags and verify the response
 	p2p.Send(peer.app, 0x0f, hashes)
 	if err := p2p.ExpectMsg(peer.app, 0x10, receipts); err != nil {
 		t.Errorf("receipts mismatch: %v", err)

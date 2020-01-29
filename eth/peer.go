@@ -234,9 +234,10 @@ func (p *peer) SendRequest(idx common.Hash, s *bitset.BitSet) {
 		p2p.Send(p.rw, RequestTxFragMsg, tmp)
 	} else {
 		if p.knownBlocks.Contains(idx) {
+			fmt.Printf("Send Request ID: %x, bitset: %s", tmp.ID, tmp.Load.String())
 			p2p.Send(p.rw, RequestBlockFragMsg, tmp)
 		} else {
-			fmt.Print("\nCould not decide request msg.code of fragments\n")
+			fmt.Print("\nCould not decide requestFrags msg.code of fragments\n")
 		}
 	}
 }
@@ -693,9 +694,12 @@ func (ps *peerSet) PeersWithoutBlockAndPeer(hash common.Hash, pout *peer) []*pee
 	return list
 }
 
-func (ps *peerSet) RandomPeer() *peer{
+func (ps *peerSet) RandomPeer() (*peer, bool) {
 	ps.lock.RLock()
 	defer ps.lock.RUnlock()
+	if len(ps.peers) == 0 {
+		return nil, false
+	}
 	idx := rand.Intn(len(ps.peers))
 	i := 0
 	var p *peer
@@ -705,7 +709,7 @@ func (ps *peerSet) RandomPeer() *peer{
 			break
 		}
 	}
-	return p
+	return p, true
 }
 /*
 func (ps *peerSet) PeersWithoutTxFrag(hash common.Hash) []*peer {

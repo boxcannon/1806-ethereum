@@ -133,7 +133,7 @@ func (pool *FragPool) Prepare(req *Request) *Fragments {
 	line.mutex.Lock()
 	defer line.mutex.Unlock()
 	pool.BigMutex.Unlock()
-	bits := line.Bit.Difference(req.load)
+	bits := line.Bit.Difference(req.Load)
 	for p := line.head; p!= nil; p = p.Next {
 		flag = bits.Test(uint(p.Content.pos))
 		if flag {

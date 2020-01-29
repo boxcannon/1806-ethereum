@@ -294,16 +294,20 @@ func (pm *ProtocolManager) removePeer(id string) {
 	}
 }
 
-// trigger a fragment request
-func (pm *ProtocolManager) request(idx common.Hash) {
-	peer := pm.peers.RandomPeer()
-	pm.fragpool.BigMutex.Lock()
-	bit := pm.fragpool.Load[idx].Bit
-	pm.fragpool.BigMutex.Unlock()
-	peer.SendRequest(idx, bit)
+// trigger a fragment requestFrags
+func (pm *ProtocolManager) requestFrags(idx common.Hash) {
+	if peer, ok := pm.peers.RandomPeer(); !ok {
+		fmt.Printf("no peers, cannot request")
+		return
+	} else {
+		pm.fragpool.BigMutex.Lock()
+		bit := pm.fragpool.Load[idx].Bit
+		pm.fragpool.BigMutex.Unlock()
+		peer.SendRequest(idx, bit)
+	}
 }
 
-// inspect over whether need to request
+// inspect over whether need to requestFrags
 func (pm *ProtocolManager) inspector() {
 	var temp map[common.Hash]uint16
 	temp = make(map[common.Hash]uint16, 0)
@@ -322,7 +326,7 @@ func (pm *ProtocolManager) inspector() {
 					if temp[k] != v.Cnt {
 						temp[k] = v.Cnt
 					} else {
-						go pm.request(k)
+						go pm.requestFrags(k)
 					}
 				}
 			}
@@ -443,7 +447,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 			}
 		}()
 	}
-	// If we have any explicit whitelist block hashes, request them
+	// If we have any explicit whitelist block hashes, requestFrags them
 	for number := range pm.whitelist {
 		if err := p.RequestHeadersByNumber(number, 1, 0, false); err != nil {
 			return err
@@ -640,7 +644,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	case msg.Code == RequestTxFragMsg:
 		// Transaction fragments can be processed, parse all of them and deliver to the pool
 		var frags *reedsolomon.Fragments
-		var req *reedsolomon.Request
+		var req reedsolomon.Request
 		if err := msg.Decode(&req); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
@@ -652,14 +656,14 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			break
 		} else {
 			pm.fragpool.BigMutex.Unlock()
-			frags = pm.fragpool.Prepare(req)
+			frags = pm.fragpool.Prepare(&req)
 		}
 		return p.SendTxFragments(frags)
 		//p2p.Send(p.rw, TxFragMsg, frags)
 
 	case msg.Code == RequestBlockFragMsg:
 		var frags *reedsolomon.Fragments
-		var req *reedsolomon.Request
+		var req reedsolomon.Request
 		if err := msg.Decode(&req); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
@@ -671,7 +675,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			break
 		} else {
 			pm.fragpool.BigMutex.Unlock()
-			frags = pm.fragpool.Prepare(req)
+			fmt.Printf("received RequestBlockFragMsg and decode,ID: %x, bitset: %s", req.ID,req.Load.String())
+			frags = pm.fragpool.Prepare(&req)
 		}
 		return p.SendBlockFragments(frags, nil)
 		//p2p.Send(p.rw, BlockFragMsg, frags)

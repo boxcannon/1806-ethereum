@@ -21,8 +21,8 @@ type Fragment struct {
 }
 
 type Request struct {
-	load  *bitset.BitSet
-	ID    common.Hash
+	Load *bitset.BitSet
+	ID   common.Hash
 
 	//caches
 	hash atomic.Value
@@ -37,7 +37,7 @@ func NewFragment(size int) *Fragment {
 
 func NewRequest(ID common.Hash, s *bitset.BitSet) *Request{
 	return &Request{
-		load: s,
+		Load: s,
 		ID:   ID,
 	}
 }
@@ -84,7 +84,7 @@ type extFragment struct {
 }
 
 type extRequest struct {
-	load  *bitset.BitSet
+	Load  *bitset.BitSet
 	ID    common.Hash
 }
 
@@ -130,14 +130,14 @@ func (req *Request) DecodeRLP(s *rlp.Stream) error {
 	if err := s.Decode(&er); err != nil {
 		return err
 	}
-	req.load, req.ID = er.load, er.ID
+	req.Load, req.ID = er.Load, er.ID
 	req.size.Store(common.StorageSize(rlp.ListSize(size)))
 	return nil
 }
 
 func (req *Request) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, extRequest{
-		load:	req.load,
+		Load:	req.Load,
 		ID:		req.ID,
 	})
 }
