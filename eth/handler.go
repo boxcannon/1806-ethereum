@@ -545,6 +545,9 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		frags := reqfrag.Frags
 		//p.MarkBlock(frags.ID)
+		fmt.Printf("block frag received:")
+		reedsolomon.PrintFrags(frags)
+		//p.MarkBlock(frags.ID)
 		for _, frag := range frags.Frags {
 			cnt = pm.fragpool.Insert(frag, frags.ID, reqfrag.TD)
 		}
@@ -1077,7 +1080,7 @@ func (pm *ProtocolManager) BroadcastTxs(txs types.Transactions) {
 	}
 }
 
-func (pm *ProtocolManager) BroadcastReceivedFrags(frags *reedsolomon.Fragments, msgCode uint64,from *peer, td *big.Int) {
+func (pm *ProtocolManager) BroadcastReceivedFrags(frags *reedsolomon.Fragments, msgCode uint64, td *big.Int) {
 	fmt.Printf("frags in pm.BroadcastReceivedFrags(), ID:%x, MsgCode:%d, td%d\n\n", frags.ID,msgCode,td)
 	switch msgCode {
 	case TxFragMsg:
