@@ -195,6 +195,11 @@ type newBlockFragData struct {
 	TD    *big.Int
 }
 
+type newRequestFragData struct {
+	ID common.Hash
+	Set []uint64
+}
+
 // sanityCheck verifies that the values are reasonable, as a DoS protection
 func (request *newBlockData) sanityCheck() error {
 	if err := request.Block.SanityCheck(); err != nil {

@@ -56,7 +56,7 @@ func (pool *FragPool) Stop() {
 }
 
 // Insert a new fragment into pool
-func (pool *FragPool) Insert(frag *Fragment, idx common.Hash, td *big.Int, fragType uint64) uint16 {
+func (pool *FragPool) Insert(frag *Fragment, idx common.Hash, td *big.Int, fragType uint64) (uint16, uint64) {
 	tmp := &FragNode {
 		Content: frag,
 		Next:    nil,
@@ -103,7 +103,7 @@ func (pool *FragPool) Insert(frag *Fragment, idx common.Hash, td *big.Int, fragT
 		line.Cnt++
 		line.Bit.Set(uint(tmp.Content.pos))
 	}
-	return pool.Load[insPos].Cnt
+	return pool.Load[insPos].Cnt, pool.Load[insPos].TotalFrag
 }
 
 // Delete maybe unused frags

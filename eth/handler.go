@@ -37,6 +37,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/trie"
+	"github.com/willf/bitset"
 	"math"
 	"math/big"
 	"math/rand"
@@ -62,6 +63,9 @@ const (
 
 	// minimum number of frags to try to decode
 	minFragNum = 40
+
+	// maximum number of total frags to send request
+	maxTotalFrag = 60
 
 	// maximum number of decoded Fragments to store
 	maxDecodeNum = 1024
@@ -348,7 +352,7 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	// broadcast mined blocks
 	pm.minedBlockSub = pm.eventMux.Subscribe(core.NewMinedBlockEvent{})
 	go pm.minedBroadcastLoop()
-	go pm.inspector()
+	// go pm.inspector()
 
 	// broadcast fragments
 	pm.fragsCh = make(chan fragMsg, fragsChanSize)
@@ -494,6 +498,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		// Transaction fragments can be processed, parse all of them and deliver to the pool
 		var cnt uint16
+		var totalFrag uint64
 		var frags reedsolomon.Fragments
 		if err := msg.Decode(&frags); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
@@ -505,7 +510,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		for _, frag := range frags.Frags {
 			fmt.Printf("\n Fragment::frag.Code here\n")
 			// Validate and mark the remote transaction
-			cnt = pm.fragpool.Insert(frag, frags.ID, nil, msg.Code)
+			cnt, totalFrag = pm.fragpool.Insert(frag, frags.ID, nil, msg.Code)
 		}
 		select {
 		case pm.fragsCh <- fragMsg{
@@ -553,10 +558,13 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			} else {
 				panic("RS cannot decode")
 			}
+		} else if totalFrag >= maxTotalFrag{
+			pm.requestFrags(frags.ID, msg.Code)
 		}
 
 	case msg.Code == BlockFragMsg:
 		var cnt uint16
+		var totalFrag uint64
 		var reqfrag newBlockFragData
 		if err := msg.Decode(&reqfrag); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
@@ -567,7 +575,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		reedsolomon.PrintFrags(frags)
 		//p.MarkBlock(frags.ID)
 		for _, frag := range frags.Frags {
-			cnt = pm.fragpool.Insert(frag, frags.ID, reqfrag.TD, msg.Code)
+			cnt, totalFrag = pm.fragpool.Insert(frag, frags.ID, reqfrag.TD, msg.Code)
 		}
 		select {
 		case pm.fragsCh <- fragMsg{
@@ -639,44 +647,50 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			} else {
 				panic("cannot RS decode")
 			}
+		} else if totalFrag >= maxTotalFrag {
+			pm.requestFrags(frags.ID, msg.Code)
 		}
 
 	case msg.Code == RequestTxFragMsg:
 		// Transaction fragments can be processed, parse all of them and deliver to the pool
 		var frags *reedsolomon.Fragments
-		var req reedsolomon.Request
+		var req newRequestFragData
 		if err := msg.Decode(&req); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 		// already decode successfully
 		pm.fragpool.BigMutex.Lock()
+		defer pm.fragpool.BigMutex.Unlock()
 		if  _, flag := pm.fragpool.Load[req.ID]; !flag {
 			fmt.Printf("\nOops! Tx Fragments have been dropped!\n")
-			pm.fragpool.BigMutex.Unlock()
 			break
 		} else {
-			pm.fragpool.BigMutex.Unlock()
-			frags = pm.fragpool.Prepare(&req)
+			frags = pm.fragpool.Prepare(&reedsolomon.Request{
+				Load: bitset.From(req.Set),
+				ID:   req.ID,
+			})
 		}
 		return p.SendTxFragments(frags)
 		//p2p.Send(p.rw, TxFragMsg, frags)
 
 	case msg.Code == RequestBlockFragMsg:
 		var frags *reedsolomon.Fragments
-		var req reedsolomon.Request
+		var req newRequestFragData
 		if err := msg.Decode(&req); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 		// already decode successfully
 		pm.fragpool.BigMutex.Lock()
+		defer pm.fragpool.BigMutex.Unlock()
 		if _, flag := pm.fragpool.Load[req.ID]; !flag {
-			fmt.Printf("\nOops! Tx Fragments have been dropped!\n")
-			pm.fragpool.BigMutex.Unlock()
+			fmt.Printf("\nOops! Block Fragments have been dropped!\n")
 			break
 		} else {
-			pm.fragpool.BigMutex.Unlock()
-			fmt.Printf("received RequestBlockFragMsg and decode,ID: %x, bitset: %s", req.ID,req.Load.String())
-			frags = pm.fragpool.Prepare(&req)
+			fmt.Printf("received RequestBlockFragMsg and decode,ID: %x, bitset: %x", req.ID, req.Set)
+			frags = pm.fragpool.Prepare(&reedsolomon.Request{
+				Load: bitset.From(req.Set),
+				ID:   req.ID,
+			})
 		}
 		return p.SendBlockFragments(frags, nil)
 		//p2p.Send(p.rw, BlockFragMsg, frags)
