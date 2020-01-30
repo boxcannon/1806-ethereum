@@ -233,9 +233,9 @@ func (p *peer) SendRequest(idx common.Hash, s *bitset.BitSet, fragType uint64) {
 	bitset := s.Bytes()
 	switch fragType {
 	case TxFragMsg:
-		p2p.Send(p.rw, RequestTxFragMsg, []interface{}{idx,bitset})
+		p2p.Send(p.rw, RequestTxFragMsg, []interface{}{&idx,&bitset})
 	case BlockFragMsg:
-		p2p.Send(p.rw, RequestBlockFragMsg, []interface{}{idx,bitset})
+		p2p.Send(p.rw, RequestBlockFragMsg, []interface{}{&idx,&bitset})
 	}
 }
 
