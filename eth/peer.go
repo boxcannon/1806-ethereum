@@ -227,19 +227,11 @@ func (p *peer) MarkFragment(hash common.Hash) {
 }
 */
 
-func (p *peer) SendRequest(idx common.Hash, s *bitset.BitSet) {
+func (p *peer) SendRequest(idx common.Hash, s *bitset.BitSet, fragType uint64) {
 	tmp := reedsolomon.NewRequest(idx, s)
 	// Try to send proper msg.code, may crash with almost 0 probability?
-	if p.knownTxs.Contains(idx) {
-		p2p.Send(p.rw, RequestTxFragMsg, tmp)
-	} else {
-		if p.knownBlocks.Contains(idx) {
-			fmt.Printf("Send Request ID: %x, bitset: %s", tmp.ID, tmp.Load.String())
-			p2p.Send(p.rw, RequestBlockFragMsg, tmp)
-		} else {
-			fmt.Print("\nCould not decide requestFrags msg.code of fragments\n")
-		}
-	}
+	fmt.Printf("Send Request ID: %x, bitset: %s", tmp.ID, tmp.Load.String())
+	p2p.Send(p.rw, fragType + 2, tmp)
 }
 
 // SendTransactions sends transactions to the peer and includes the hashes

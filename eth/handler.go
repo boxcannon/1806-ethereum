@@ -295,7 +295,7 @@ func (pm *ProtocolManager) removePeer(id string) {
 }
 
 // trigger a fragment requestFrags
-func (pm *ProtocolManager) requestFrags(idx common.Hash) {
+func (pm *ProtocolManager) requestFrags(idx common.Hash, fragType uint64) {
 	if peer, ok := pm.peers.RandomPeer(); !ok {
 		fmt.Printf("no peers, cannot request")
 		return
@@ -303,7 +303,7 @@ func (pm *ProtocolManager) requestFrags(idx common.Hash) {
 		pm.fragpool.BigMutex.Lock()
 		bit := pm.fragpool.Load[idx].Bit
 		pm.fragpool.BigMutex.Unlock()
-		peer.SendRequest(idx, bit)
+		peer.SendRequest(idx, bit, fragType)
 	}
 }
 
@@ -326,7 +326,7 @@ func (pm *ProtocolManager) inspector() {
 					if temp[k] != v.Cnt {
 						temp[k] = v.Cnt
 					} else {
-						go pm.requestFrags(k)
+						go pm.requestFrags(k,v.Type)
 					}
 				}
 			}
@@ -505,7 +505,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		for _, frag := range frags.Frags {
 			fmt.Printf("\n Fragment::frag.Code here\n")
 			// Validate and mark the remote transaction
-			cnt = pm.fragpool.Insert(frag, frags.ID, nil)
+			cnt = pm.fragpool.Insert(frag, frags.ID, nil, msg.Code)
 		}
 		select {
 		case pm.fragsCh <- fragMsg{
@@ -567,7 +567,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		reedsolomon.PrintFrags(frags)
 		//p.MarkBlock(frags.ID)
 		for _, frag := range frags.Frags {
-			cnt = pm.fragpool.Insert(frag, frags.ID, reqfrag.TD)
+			cnt = pm.fragpool.Insert(frag, frags.ID, reqfrag.TD, msg.Code)
 		}
 		select {
 		case pm.fragsCh <- fragMsg{
