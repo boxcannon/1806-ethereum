@@ -473,13 +473,10 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	//fmt.Printf("\n ProtocolManager. \n\n")
 	msg, err := p.rw.ReadMsg()
 	//fmt.Printf("\n ProtocolManager::msg.Code %x \n\n", msg.Code)
-	fmt.Printf("msg received, code: %d,from %x\n\n\n",msg.Code,p.id)
+	fmt.Printf("msg received, code: %d,from %x\n\n",msg.Code,p.id)
 	if err != nil {
 		return err
 	}
-	//if msg.Code == TxFragMsg {
-	//	fmt.Printf("Message Received \n\n\n\n\n\n\n\n\n")
-	//}
 	if msg.Size > protocolMaxMsgSize {
 		return errResp(ErrMsgTooLarge, "%v > %v", msg.Size, protocolMaxMsgSize)
 	}
@@ -508,7 +505,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
         //p.MarkTransaction(frags.ID)
 		for _, frag := range frags.Frags {
-			fmt.Printf("\n Fragment::frag.Code here\n")
 			// Validate and mark the remote transaction
 			cnt, totalFrag = pm.fragpool.Insert(frag, frags.ID, nil, msg.Code)
 		}
@@ -519,9 +515,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			from: p,
 			td:    nil,
 		}:
-			fmt.Printf("Tx Frags in channel\n\n\n")
 		default:
-			fmt.Printf("Tx Frags in channel failed \n\n\n")
 		}
 		if cnt >= minFragNum {
 			txRlp, flag := pm.fragpool.TryDecode(frags.ID, pm.rs)
@@ -559,7 +553,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				panic("RS cannot decode")
 			}
 		} else if totalFrag >= maxTotalFrag{
-			go pm.requestFrags(frags.ID, msg.Code)
+			go pm.requestFrags(frags.ID, TxFragMsg)
 		}
 
 	case msg.Code == BlockFragMsg:
@@ -571,7 +565,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		frags := reqfrag.Frags
 		//p.MarkBlock(frags.ID)
-		fmt.Printf("block frag received:")
+		fmt.Printf("block frag received:\n")
 		reedsolomon.PrintFrags(frags)
 		//p.MarkBlock(frags.ID)
 		for _, frag := range frags.Frags {
@@ -584,9 +578,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			from: p,
 			td:    reqfrag.TD,
 		}:
-			fmt.Printf("sent received block frags in channel, id: %x\n\n", reqfrag.Frags.ID)
 		default:
-			fmt.Printf("Block Frags in channel failed \n\n\n")
 		}
 		if cnt >= minFragNum {
 			blockrlp, flag := pm.fragpool.TryDecode(frags.ID, pm.rs)
@@ -648,7 +640,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				panic("cannot RS decode")
 			}
 		} else if totalFrag >= maxTotalFrag {
-			go pm.requestFrags(frags.ID, msg.Code)
+			go pm.requestFrags(frags.ID, BlockFragMsg)
 		}
 
 	case msg.Code == RequestTxFragMsg:
@@ -1114,7 +1106,6 @@ func (pm *ProtocolManager) BroadcastTxs(txs types.Transactions) {
 }
 
 func (pm *ProtocolManager) BroadcastReceivedFrags(frags *reedsolomon.Fragments, msgCode uint64,from *peer, td *big.Int) {
-	fmt.Printf("frags in pm.BroadcastReceivedFrags(), ID:%x, MsgCode:%d, td%d\n\n", frags.ID,msgCode,td)
 	switch msgCode {
 	case TxFragMsg:
 		peers := pm.peers.PeersWithoutTxAndPeer(frags.ID, from)
@@ -1267,7 +1258,6 @@ func (pm *ProtocolManager) fragsBroadcastLoop() {
 	for {
 		select {
 		case fragMsg := <-pm.fragsCh:
-			fmt.Printf("Broadcast Received Fragments ID: %x, MsgCode: %d\n\n", fragMsg.frags.ID, fragMsg.code)
 			pm.BroadcastReceivedFrags(fragMsg.frags, fragMsg.code,fragMsg.from, fragMsg.td)
 		case <-pm.quitFragsBroadcast:
 			return
