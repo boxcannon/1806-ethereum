@@ -306,7 +306,7 @@ func (pm *ProtocolManager) requestFrags(idx common.Hash, fragType uint64) {
 	} else {
 		pm.fragpool.BigMutex.Lock()
 		bit := pm.fragpool.Load[idx].Bit
-		pm.fragpool.BigMutex.Unlock()
+		defer pm.fragpool.BigMutex.Unlock()
 		peer.SendRequest(idx, bit, fragType)
 	}
 }

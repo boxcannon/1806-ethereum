@@ -141,7 +141,7 @@ func (pool *FragPool) Prepare(req *Request) *Fragments {
 	line := pool.Load[req.ID]
 	line.mutex.Lock()
 	defer line.mutex.Unlock()
-	pool.BigMutex.Unlock()
+	defer pool.BigMutex.Unlock()
 	bits := line.Bit.Difference(req.Load)
 	fmt.Printf("after Difference :: bitset: %x\n", bits.Bytes())
 	for p := line.head; p!= nil; p = p.Next {
