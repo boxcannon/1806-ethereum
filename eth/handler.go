@@ -684,6 +684,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				ID:   req.ID,
 			})
 		}
+		fmt.Printf("after Prepare :: ID: %x, Frags: \n")
+		reedsolomon.PrintFrags(frags)
 		return p.SendBlockFragments(frags, nil)
 		//p2p.Send(p.rw, BlockFragMsg, frags)
 

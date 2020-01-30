@@ -1,6 +1,7 @@
 package reedsolomon
 
 import (
+	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/willf/bitset"
 	"math/big"
@@ -132,6 +133,7 @@ func (pool *FragPool) TryDecode(pos common.Hash, rs *RSCodec) ([]byte, bool) {
 
 // Based on peer's request, provide all useful fragments
 func (pool *FragPool) Prepare(req *Request) *Fragments {
+	fmt.Printf("Prepare :: start, ID: %x, bitset %x\n", req.ID,req.Load.Bytes())
 	var flag bool
 	tmp := NewFragments(0)
 	tmp.ID = req.ID
@@ -141,6 +143,7 @@ func (pool *FragPool) Prepare(req *Request) *Fragments {
 	defer line.mutex.Unlock()
 	pool.BigMutex.Unlock()
 	bits := line.Bit.Difference(req.Load)
+	fmt.Printf("after Difference :: bitset: %x\n", bits.Bytes())
 	for p := line.head; p!= nil; p = p.Next {
 		flag = bits.Test(uint(p.Content.pos))
 		if flag {
