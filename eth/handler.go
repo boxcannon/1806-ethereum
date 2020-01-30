@@ -559,7 +559,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				panic("RS cannot decode")
 			}
 		} else if totalFrag >= maxTotalFrag{
-			pm.requestFrags(frags.ID, msg.Code)
+			go pm.requestFrags(frags.ID, msg.Code)
 		}
 
 	case msg.Code == BlockFragMsg:
@@ -648,7 +648,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				panic("cannot RS decode")
 			}
 		} else if totalFrag >= maxTotalFrag {
-			pm.requestFrags(frags.ID, msg.Code)
+			go pm.requestFrags(frags.ID, msg.Code)
 		}
 
 	case msg.Code == RequestTxFragMsg:
