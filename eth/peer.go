@@ -231,7 +231,12 @@ func (p *peer) SendRequest(idx common.Hash, s *bitset.BitSet, fragType uint64) {
 	// Try to send proper msg.code, may crash with almost 0 probability?
 	fmt.Printf("Send Request ID: %x, bitset: %x, fragType: %d", idx,s.Bytes(),fragType)
 	bitset := s.Bytes()
-	p2p.Send(p.rw, fragType + 2, []interface{}{idx,&bitset})
+	switch fragType {
+	case TxFragMsg:
+		p2p.Send(p.rw, RequestTxFragMsg, []interface{}{idx,&bitset})
+	case BlockFragMsg:
+		p2p.Send(p.rw, RequestBlockFragMsg, []interface{}{idx,&bitset})
+	}
 }
 
 // SendTransactions sends transactions to the peer and includes the hashes
