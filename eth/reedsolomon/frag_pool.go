@@ -21,6 +21,8 @@ type FragLine struct {
 	mutex sync.Mutex
 	head	*FragNode
 	Bit		*bitset.BitSet
+	MinHop uint32
+	MinHopPeer string
 	TotalFrag uint64
 	Cnt		uint64
 	Trial	uint8
@@ -34,10 +36,12 @@ type FragPool struct {
 	Load		map[common.Hash]*FragLine
 }
 
-func NewFragLine(newNode *FragNode, fragType uint64) *FragLine{
+func NewFragLine(newNode *FragNode, fragType uint64, minHop uint32, minHopPeer string) *FragLine{
 	return &FragLine {
 		head:	newNode,
 		Bit:	bitset.New(EccSymbol+NumSymbol),
+		MinHop: minHop,
+		MinHopPeer: minHopPeer,
 		TotalFrag: 0,
 		Cnt:	0,
 		Trial:  0,
@@ -59,7 +63,7 @@ func (pool *FragPool) Stop() {
 }
 
 // Insert a new fragment into pool
-func (pool *FragPool) Insert(frag *Fragment, idx common.Hash, td *big.Int, fragType uint64) (uint64, uint64, uint32) {
+func (pool *FragPool) Insert(frag *Fragment, idx common.Hash, hopCnt uint32, peerID string, td *big.Int, fragType uint64) (uint64, uint64, uint32) {
 	tmp := &FragNode {
 		Content: frag,
 		Next:    nil,
@@ -71,7 +75,7 @@ func (pool *FragPool) Insert(frag *Fragment, idx common.Hash, td *big.Int, fragT
 	defer pool.BigMutex.Unlock()
 	// create new line, first insertion should store TD
 	if _, ok := pool.Load[insPos]; !ok {
-		pool.Load[insPos] = NewFragLine(tmp, fragType)
+		pool.Load[insPos] = NewFragLine(tmp, fragType, hopCnt, peerID)
 		pool.Load[insPos].Bit.Set(uint(frag.pos))
 		// first insertion decides TD
 		line = pool.Load[insPos]
@@ -102,6 +106,10 @@ func (pool *FragPool) Insert(frag *Fragment, idx common.Hash, td *big.Int, fragT
 		}
 	}
 	atomic.AddUint64(&line.TotalFrag,1)
+	if line.MinHop > hopCnt {
+		line.MinHopPeer = peerID
+		line.MinHop = hopCnt
+	}
 	if flag {
 		atomic.AddUint64(&line.Cnt,1)
 		line.Bit.Set(uint(tmp.Content.pos))

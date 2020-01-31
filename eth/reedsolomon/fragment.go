@@ -61,6 +61,7 @@ type FragmentList []*Fragment
 type Fragments struct {
 	Frags FragmentList
 	ID    common.Hash
+	HopCnt uint32
 
 	//caches
 	hash atomic.Value
@@ -70,12 +71,14 @@ type Fragments struct {
 func NewFragments(size int) *Fragments {
 	return &Fragments{
 		Frags: make([]*Fragment, size),
+		HopCnt: 0,
 	}
 }
 
 type extFragments struct {
 	Frags []*Fragment
 	ID    common.Hash
+	HopCnt uint32
 }
 
 type extFragment struct {
@@ -94,7 +97,7 @@ func (frags *Fragments) DecodeRLP(s *rlp.Stream) error {
 	if err := s.Decode(&ef); err != nil {
 		return err
 	}
-	frags.Frags, frags.ID = ef.Frags, ef.ID
+	frags.Frags, frags.ID, frags.HopCnt = ef.Frags, ef.ID, ef.HopCnt
 	frags.size.Store(common.StorageSize(rlp.ListSize(size)))
 	return nil
 }
@@ -103,6 +106,7 @@ func (frags *Fragments) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, extFragments{
 		Frags: frags.Frags,
 		ID:    frags.ID,
+		HopCnt: frags.HopCnt,
 	})
 }
 

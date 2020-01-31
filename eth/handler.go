@@ -506,8 +506,9 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
         //p.MarkTransaction(frags.ID)
 		for _, frag := range frags.Frags {
 			// Validate and mark the remote transaction
-			cnt, totalFrag, isDecoded = pm.fragpool.Insert(frag, frags.ID, nil, msg.Code)
+			cnt, totalFrag, isDecoded = pm.fragpool.Insert(frag, frags.ID, frags.HopCnt, p.id, nil, msg.Code)
 		}
+		frags.HopCnt++
 		select {
 		case pm.fragsCh <- fragMsg{
 			frags: &frags,
@@ -537,7 +538,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				txs = append(txs, &tx)
 				errs := pm.txpool.AddRemotes(txs) // do not need
 				for _, err = range errs {
-					fmt.Println(err)
+					log.Error("Error in TxFragMsg","error:",err)
 				}
 
 				// Clean maybe unneeded trash
@@ -565,15 +566,14 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 		frags := reqfrag.Frags
-		//p.MarkBlock(frags.ID)
-		fmt.Printf("block frag received:\n,ID: %x",frags.ID)
-		//p.MarkBlock(frags.ID)
+
 		for _, frag := range frags.Frags {
-			cnt, totalFrag, isDecoded = pm.fragpool.Insert(frag, frags.ID, reqfrag.TD, msg.Code)
+			cnt, totalFrag, isDecoded = pm.fragpool.Insert(frag, frags.ID, frags.HopCnt, p.id, reqfrag.TD, msg.Code)
 		}
+		frags.HopCnt++
 		select {
 		case pm.fragsCh <- fragMsg{
-			frags: reqfrag.Frags,
+			frags: frags,
 			code:  msg.Code,
 			from: p,
 			td:    reqfrag.TD,
