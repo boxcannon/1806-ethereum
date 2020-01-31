@@ -704,6 +704,7 @@ func (ps *peerSet) RandomPeer() (*peer, bool) {
 			p = tmp
 			break
 		}
+		i++
 	}
 	return p, true
 }
