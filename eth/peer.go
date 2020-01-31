@@ -232,7 +232,7 @@ func (p *peer) SendRequest(idx common.Hash, s *bitset.BitSet, fragType uint64) {
 	fmt.Printf("Send Request ID: %x, bitset: %x, fragType: %d", idx,s.Bytes(),fragType)
 	bitset := s.Bytes()
 		if p != nil {
-			p2p.Send(p.rw, RequestTxFragMsg, []interface{}{idx, &bitset})
+			p2p.Send(p.rw, fragType + 2, []interface{}{idx, &bitset})
 		} else {
 			fmt.Printf("SendRequest :: p is nil\n, send failed")
 		}
