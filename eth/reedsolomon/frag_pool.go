@@ -140,6 +140,7 @@ func (pool *FragPool) Prepare(req *Request) *Fragments {
 	pool.BigMutex.Lock()
 	line := pool.Load[req.ID]
 	line.mutex.Lock()
+	fmt.Printf("line.Bit : %x", line.Bit.Bytes())
 	defer line.mutex.Unlock()
 	defer pool.BigMutex.Unlock()
 	bits := line.Bit.Difference(req.Load)
