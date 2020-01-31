@@ -18,7 +18,6 @@ type FragNode struct {
 }
 
 type FragLine struct {
-	mutex   sync.Mutex
 	head	*FragNode
 	Bit		*bitset.BitSet
 	TotalFrag uint64
@@ -77,8 +76,6 @@ func (pool *FragPool) Insert(frag *Fragment, idx common.Hash, td *big.Int, fragT
 	} else {
 		p := pool.Load[insPos].head
 		line = pool.Load[insPos]
-		line.mutex.Lock()
-		defer line.mutex.Unlock()
 		if tmp.Content.pos < p.Content.pos {
 			line.head = tmp
 			tmp.Next = p
@@ -120,9 +117,7 @@ func (pool *FragPool) TryDecode(pos common.Hash, rs *RSCodec) ([]byte, bool) {
 	pool.BigMutex.Lock()
 	p := pool.Load[pos].head
 	line := pool.Load[pos]
-	line.mutex.Lock()
-	defer line.mutex.Unlock()
-	pool.BigMutex.Unlock()
+	defer pool.BigMutex.Unlock()
 	for ; p != nil; p = p.Next {
 		data = append(data, p.Content)
 	}
@@ -139,9 +134,7 @@ func (pool *FragPool) Prepare(req *Request) *Fragments {
 	tmp.ID = req.ID
 	pool.BigMutex.Lock()
 	line := pool.Load[req.ID]
-	line.mutex.Lock()
 	fmt.Printf("line.Bit : %x", line.Bit.Bytes())
-	defer line.mutex.Unlock()
 	defer pool.BigMutex.Unlock()
 	bits := line.Bit.Difference(req.Load)
 	fmt.Printf("after Difference :: bitset: %x\n", bits.Bytes())
