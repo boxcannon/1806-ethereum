@@ -1,11 +1,11 @@
 package reedsolomon
 
 import (
-	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/willf/bitset"
 	"math/big"
 	"sync"
+	"sync/atomic"
 )
 const (
 	TxFrag = 0x11
@@ -22,9 +22,10 @@ type FragLine struct {
 	head	*FragNode
 	Bit		*bitset.BitSet
 	TotalFrag uint64
-	Cnt		uint16
+	Cnt		uint64
 	Trial	uint8
 	Type uint64
+	IsDecoded  uint32
 	TD      *big.Int
 }
 
@@ -40,6 +41,7 @@ func NewFragLine(newNode *FragNode, fragType uint64) *FragLine{
 		TotalFrag: 0,
 		Cnt:	0,
 		Trial:  0,
+		IsDecoded: 0,
 		Type: fragType,
 		TD:		new(big.Int),
 	}
@@ -57,7 +59,7 @@ func (pool *FragPool) Stop() {
 }
 
 // Insert a new fragment into pool
-func (pool *FragPool) Insert(frag *Fragment, idx common.Hash, td *big.Int, fragType uint64) (uint16, uint64) {
+func (pool *FragPool) Insert(frag *Fragment, idx common.Hash, td *big.Int, fragType uint64) (uint64, uint64, uint32) {
 	tmp := &FragNode {
 		Content: frag,
 		Next:    nil,
@@ -99,12 +101,12 @@ func (pool *FragPool) Insert(frag *Fragment, idx common.Hash, td *big.Int, fragT
 			}
 		}
 	}
-	line.TotalFrag++
+	atomic.AddUint64(&line.TotalFrag,1)
 	if flag {
-		line.Cnt++
+		atomic.AddUint64(&line.Cnt,1)
 		line.Bit.Set(uint(tmp.Content.pos))
 	}
-	return pool.Load[insPos].Cnt, pool.Load[insPos].TotalFrag
+	return pool.Load[insPos].Cnt, pool.Load[insPos].TotalFrag, pool.Load[insPos].IsDecoded
 }
 
 // Delete maybe unused frags
@@ -128,23 +130,23 @@ func (pool *FragPool) TryDecode(pos common.Hash, rs *RSCodec) ([]byte, bool) {
 	}
 	line.Trial++
 	res, flag := rs.SpliceAndDecode(data)
+	if flag {
+		atomic.StoreUint32(&pool.Load[pos].IsDecoded,1)
+	}
 	return res, flag
 }
 
 // Based on peer's request, provide all useful fragments
 func (pool *FragPool) Prepare(req *Request) *Fragments {
-	fmt.Printf("Prepare :: start, ID: %x, bitset %x\n", req.ID,req.Load.Bytes())
 	var flag bool
 	tmp := NewFragments(0)
 	tmp.ID = req.ID
 	pool.BigMutex.Lock()
 	line := pool.Load[req.ID]
 	line.mutex.Lock()
-	fmt.Printf("line.Bit : %x", line.Bit.Bytes())
 	defer line.mutex.Unlock()
 	defer pool.BigMutex.Unlock()
 	bits := line.Bit.Difference(req.Load)
-	fmt.Printf("after Difference :: bitset: %x\n", bits.Bytes())
 	for p := line.head; p!= nil; p = p.Next {
 		flag = bits.Test(uint(p.Content.pos))
 		if flag {

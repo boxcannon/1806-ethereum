@@ -301,20 +301,21 @@ func (pm *ProtocolManager) removePeer(id string) {
 // trigger a fragment requestFrags
 func (pm *ProtocolManager) requestFrags(idx common.Hash, fragType uint64) {
 	if peer, ok := pm.peers.RandomPeer(); !ok {
-		fmt.Printf("no peers, cannot request")
+		log.Warn("no peers, cannot request")
 		return
 	} else {
 		pm.fragpool.BigMutex.Lock()
 		bit := pm.fragpool.Load[idx].Bit
 		pm.fragpool.BigMutex.Unlock()
 		peer.SendRequest(idx, bit, fragType)
+		log.Trace("Send Frags Request","ID", idx, "Type", fragType)
 	}
 }
 
 // inspect over whether need to requestFrags
 func (pm *ProtocolManager) inspector() {
-	var temp map[common.Hash]uint16
-	temp = make(map[common.Hash]uint16, 0)
+	var temp map[common.Hash]uint64
+	temp = make(map[common.Hash]uint64, 0)
 
 	forceRequest := time.NewTicker(forceRequestCycle)
 	defer forceRequest.Stop()
@@ -470,9 +471,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 // peer. The remote connection is torn down upon returning any error.
 func (pm *ProtocolManager) handleMsg(p *peer) error {
 	// Read the next message from the remote peer, and ensure it's fully consumed
-	//fmt.Printf("\n ProtocolManager. \n\n")
 	msg, err := p.rw.ReadMsg()
-	//fmt.Printf("\n ProtocolManager::msg.Code %x \n\n", msg.Code)
 	fmt.Printf("msg received, code: %d,from %x\n\n",msg.Code,p.id)
 	if err != nil {
 		return err
@@ -494,8 +493,9 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			break
 		}
 		// Transaction fragments can be processed, parse all of them and deliver to the pool
-		var cnt uint16
+		var cnt uint64
 		var totalFrag uint64
+		var isDecoded uint32
 		var frags reedsolomon.Fragments
 		if err := msg.Decode(&frags); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
@@ -506,7 +506,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
         //p.MarkTransaction(frags.ID)
 		for _, frag := range frags.Frags {
 			// Validate and mark the remote transaction
-			cnt, totalFrag = pm.fragpool.Insert(frag, frags.ID, nil, msg.Code)
+			cnt, totalFrag, isDecoded = pm.fragpool.Insert(frag, frags.ID, nil, msg.Code)
 		}
 		select {
 		case pm.fragsCh <- fragMsg{
@@ -517,7 +517,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}:
 		default:
 		}
-		if cnt >= minFragNum {
+		if cnt >= minFragNum && isDecoded == 0 {
 			txRlp, flag := pm.fragpool.TryDecode(frags.ID, pm.rs)
 			// flag=1 means decode success
 			if flag {
@@ -552,12 +552,13 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			} else {
 				panic("RS cannot decode")
 			}
-		} else if totalFrag >= maxTotalFrag{
+		} else if totalFrag >= maxTotalFrag && isDecoded == 0{
 			go pm.requestFrags(frags.ID, TxFragMsg)
 		}
 
 	case msg.Code == BlockFragMsg:
-		var cnt uint16
+		var cnt uint64
+		var isDecoded uint32
 		var totalFrag uint64
 		var reqfrag newBlockFragData
 		if err := msg.Decode(&reqfrag); err != nil {
@@ -565,11 +566,10 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		frags := reqfrag.Frags
 		//p.MarkBlock(frags.ID)
-		fmt.Printf("block frag received:\n")
-		reedsolomon.PrintFrags(frags)
+		fmt.Printf("block frag received:\n,ID: %x",frags.ID)
 		//p.MarkBlock(frags.ID)
 		for _, frag := range frags.Frags {
-			cnt, totalFrag = pm.fragpool.Insert(frag, frags.ID, reqfrag.TD, msg.Code)
+			cnt, totalFrag, isDecoded = pm.fragpool.Insert(frag, frags.ID, reqfrag.TD, msg.Code)
 		}
 		select {
 		case pm.fragsCh <- fragMsg{
@@ -580,7 +580,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}:
 		default:
 		}
-		if cnt >= minFragNum {
+		if cnt >= minFragNum && isDecoded == 0{
 			blockrlp, flag := pm.fragpool.TryDecode(frags.ID, pm.rs)
 			if flag {
 				var block types.Block
@@ -637,9 +637,9 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				}
 				pm.decoded.mutex.Unlock()
 			} else {
-				panic("cannot RS decode")
+				log.Debug("cannot RS decode")
 			}
-		} else if totalFrag >= maxTotalFrag {
+		} else if totalFrag >= maxTotalFrag && isDecoded == 0 {
 			go pm.requestFrags(frags.ID, BlockFragMsg)
 		}
 
@@ -663,6 +663,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				ID:   req.ID,
 			})
 		}
+		log.Trace("Response to RequestTxFragMsg","ID", frags.ID,"frag size",frags.Size())
 		return p.SendTxFragments(frags)
 		//p2p.Send(p.rw, TxFragMsg, frags)
 
@@ -677,17 +678,15 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		_, flag := pm.fragpool.Load[req.ID]
 		pm.fragpool.BigMutex.Unlock()
 		if !flag {
-			fmt.Printf("\nOops! Block Fragments have been dropped!\n")
+			log.Trace("\nOops! Block Fragments have been dropped!\n")
 			break
 		} else {
-			fmt.Printf("received RequestBlockFragMsg and decode,ID: %x, bitset: %x", req.ID, req.Set)
 			frags = pm.fragpool.Prepare(&reedsolomon.Request{
 				Load: bitset.From(req.Set),
 				ID:   req.ID,
 			})
 		}
-		fmt.Printf("after Prepare :: ID: %x, Frags: \n")
-		reedsolomon.PrintFrags(frags)
+		log.Trace("Response to RequestBlockFragMsg","ID", frags.ID,"frag size",frags.Size())
 		return p.SendBlockFragments(frags, nil)
 		//p2p.Send(p.rw, BlockFragMsg, frags)
 
