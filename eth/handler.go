@@ -652,7 +652,9 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		// already decode successfully
 		pm.fragpool.BigMutex.Lock()
-		if  _, flag := pm.fragpool.Load[req.ID]; !flag {
+		_, flag := pm.fragpool.Load[req.ID]
+		pm.fragpool.BigMutex.Unlock()
+		if !flag {
 			fmt.Printf("\nOops! Tx Fragments have been dropped!\n")
 			break
 		} else {
@@ -661,7 +663,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				ID:   req.ID,
 			})
 		}
-		pm.fragpool.BigMutex.Unlock()
 		return p.SendTxFragments(frags)
 		//p2p.Send(p.rw, TxFragMsg, frags)
 
@@ -673,7 +674,9 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		// already decode successfully
 		pm.fragpool.BigMutex.Lock()
-		if _, flag := pm.fragpool.Load[req.ID]; !flag {
+		_, flag := pm.fragpool.Load[req.ID]
+		pm.fragpool.BigMutex.Unlock()
+		if !flag {
 			fmt.Printf("\nOops! Block Fragments have been dropped!\n")
 			break
 		} else {
@@ -685,7 +688,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		fmt.Printf("after Prepare :: ID: %x, Frags: \n")
 		reedsolomon.PrintFrags(frags)
-		pm.fragpool.BigMutex.Unlock()
 		return p.SendBlockFragments(frags, nil)
 		//p2p.Send(p.rw, BlockFragMsg, frags)
 
