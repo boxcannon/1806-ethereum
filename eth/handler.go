@@ -97,7 +97,7 @@ type decodedFrags struct {
 	queue []common.Hash
 }
 
-func newDecodedFrags() *decodedFrags{
+func newDecodedFrags() *decodedFrags {
 	return &decodedFrags{
 		mutex: sync.Mutex{},
 		queue: make([]common.Hash, 0),
@@ -134,12 +134,12 @@ type ProtocolManager struct {
 	whitelist map[uint64]common.Hash
 
 	// channels for fetcher, syncer, txsyncLoop
-	newPeerCh         chan *peer
-	txsyncCh          chan *txsync
-	quitSync          chan struct{}
+	newPeerCh          chan *peer
+	txsyncCh           chan *txsync
+	quitSync           chan struct{}
 	quitFragsBroadcast chan struct{}
-	quitInspector chan struct{}
-	noMorePeers       chan struct{}
+	quitInspector      chan struct{}
+	noMorePeers        chan struct{}
 
 	// wait group is used for graceful shutdowns during downloading
 	// and processing
@@ -153,22 +153,22 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 	blockchain *core.BlockChain, chaindb ethdb.Database, cacheLimit int, whitelist map[uint64]common.Hash) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
-		networkID:   networkID,
-		forkFilter:  forkid.NewFilter(blockchain),
-		eventMux:    mux,
-		rs:			 rs,
-		txpool:      txpool,
-		fragpool:    fragpool,
-		blockchain:  blockchain,
-		peers:       newPeerSet(),
-		decoded:     newDecodedFrags(),
-		whitelist:   whitelist,
-		newPeerCh:   make(chan *peer),
-		noMorePeers: make(chan struct{}),
-		txsyncCh:    make(chan *txsync),
-		quitSync:    make(chan struct{}),
+		networkID:          networkID,
+		forkFilter:         forkid.NewFilter(blockchain),
+		eventMux:           mux,
+		rs:                 rs,
+		txpool:             txpool,
+		fragpool:           fragpool,
+		blockchain:         blockchain,
+		peers:              newPeerSet(),
+		decoded:            newDecodedFrags(),
+		whitelist:          whitelist,
+		newPeerCh:          make(chan *peer),
+		noMorePeers:        make(chan struct{}),
+		txsyncCh:           make(chan *txsync),
+		quitSync:           make(chan struct{}),
 		quitFragsBroadcast: make(chan struct{}),
-		quitInspector: make(chan struct{}),
+		quitInspector:      make(chan struct{}),
 	}
 	if mode == downloader.FullSync {
 		// The database seems empty as the current block is the genesis. Yet the fast
@@ -308,7 +308,7 @@ func (pm *ProtocolManager) requestFrags(idx common.Hash, fragType uint64) {
 		bit := pm.fragpool.Load[idx].Bit
 		pm.fragpool.BigMutex.Unlock()
 		peer.SendRequest(idx, bit, fragType)
-		log.Trace("Send Frags Request","ID", idx, "Type", fragType)
+		log.Trace("Send Frags Request", "ID", idx, "Type", fragType)
 	}
 }
 
@@ -321,7 +321,7 @@ func (pm *ProtocolManager) inspector() {
 	defer forceRequest.Stop()
 
 	for {
-		select{
+		select {
 		case <-forceRequest.C:
 			pm.fragpool.BigMutex.Lock()
 			for k, v := range pm.fragpool.Load {
@@ -331,7 +331,7 @@ func (pm *ProtocolManager) inspector() {
 					if temp[k] != v.Cnt {
 						temp[k] = v.Cnt
 					} else {
-						go pm.requestFrags(k,v.Type)
+						go pm.requestFrags(k, v.Type)
 					}
 				}
 			}
@@ -344,6 +344,8 @@ func (pm *ProtocolManager) inspector() {
 
 func (pm *ProtocolManager) Start(maxPeers int) {
 	pm.maxPeers = maxPeers
+
+	fmt.Println("test")
 
 	// broadcast transactions
 	pm.txsCh = make(chan core.NewTxsEvent, txChanSize)
@@ -472,7 +474,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 func (pm *ProtocolManager) handleMsg(p *peer) error {
 	// Read the next message from the remote peer, and ensure it's fully consumed
 	msg, err := p.rw.ReadMsg()
-	fmt.Printf("msg received, code: %d,from %x\n\n",msg.Code,p.id)
+	fmt.Printf("msg received, code: %d,from %x\n\n", msg.Code, p.id)
 	if err != nil {
 		return err
 	}
@@ -503,7 +505,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if pm.txpool.CheckExistence(frags.ID) != nil {
 			break
 		}
-        //p.MarkTransaction(frags.ID)
+		//p.MarkTransaction(frags.ID)
 		for _, frag := range frags.Frags {
 			// Validate and mark the remote transaction
 			cnt, totalFrag, isDecoded = pm.fragpool.Insert(frag, frags.ID, frags.HopCnt, p.id, nil, msg.Code)
@@ -513,7 +515,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		case pm.fragsCh <- fragMsg{
 			frags: &frags,
 			code:  msg.Code,
-			from: p,
+			from:  p,
 			td:    nil,
 		}:
 		default:
@@ -538,7 +540,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				txs = append(txs, &tx)
 				errs := pm.txpool.AddRemotes(txs) // do not need
 				for _, err = range errs {
-					log.Error("Error in TxFragMsg","error:",err)
+					log.Error("Error in TxFragMsg", "error:", err)
 				}
 
 				// Clean maybe unneeded trash
@@ -553,7 +555,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			} else {
 				panic("RS cannot decode")
 			}
-		} else if totalFrag >= maxTotalFrag && isDecoded == 0{
+		} else if totalFrag >= maxTotalFrag && isDecoded == 0 {
 			go pm.requestFrags(frags.ID, TxFragMsg)
 		}
 
@@ -575,12 +577,12 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		case pm.fragsCh <- fragMsg{
 			frags: frags,
 			code:  msg.Code,
-			from: p,
+			from:  p,
 			td:    reqfrag.TD,
 		}:
 		default:
 		}
-		if cnt >= minFragNum && isDecoded == 0{
+		if cnt >= minFragNum && isDecoded == 0 {
 			blockrlp, flag := pm.fragpool.TryDecode(frags.ID, pm.rs)
 			if flag {
 				var block types.Block
@@ -663,7 +665,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				ID:   req.ID,
 			})
 		}
-		log.Trace("Response to RequestTxFragMsg","ID", frags.ID,"frag size",frags.Size())
+		log.Trace("Response to RequestTxFragMsg", "ID", frags.ID, "frag size", frags.Size())
 		return p.SendTxFragments(frags)
 		//p2p.Send(p.rw, TxFragMsg, frags)
 
@@ -686,7 +688,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				ID:   req.ID,
 			})
 		}
-		log.Trace("Response to RequestBlockFragMsg","ID", frags.ID,"frag size",frags.Size())
+		log.Trace("Response to RequestBlockFragMsg", "ID", frags.ID, "frag size", frags.Size())
 		return p.SendBlockFragments(frags, nil)
 		//p2p.Send(p.rw, BlockFragMsg, frags)
 
@@ -1108,7 +1110,7 @@ func (pm *ProtocolManager) BroadcastTxs(txs types.Transactions) {
 	}
 }
 
-func (pm *ProtocolManager) BroadcastReceivedFrags(frags *reedsolomon.Fragments, msgCode uint64,from *peer, td *big.Int) {
+func (pm *ProtocolManager) BroadcastReceivedFrags(frags *reedsolomon.Fragments, msgCode uint64, from *peer, td *big.Int) {
 	switch msgCode {
 	case TxFragMsg:
 		peers := pm.peers.PeersWithoutTxAndPeer(frags.ID, from)
@@ -1261,7 +1263,7 @@ func (pm *ProtocolManager) fragsBroadcastLoop() {
 	for {
 		select {
 		case fragMsg := <-pm.fragsCh:
-			pm.BroadcastReceivedFrags(fragMsg.frags, fragMsg.code,fragMsg.from, fragMsg.td)
+			pm.BroadcastReceivedFrags(fragMsg.frags, fragMsg.code, fragMsg.from, fragMsg.td)
 		case <-pm.quitFragsBroadcast:
 			return
 		}
