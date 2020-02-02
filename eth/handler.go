@@ -75,6 +75,9 @@ const (
 
 	// time intervall to force request.
 	forceRequestCycle = time.Second
+
+	// delay threshold
+	delayThreshold = 70
 )
 
 var (
@@ -344,8 +347,6 @@ func (pm *ProtocolManager) inspector() {
 
 func (pm *ProtocolManager) Start(maxPeers int) {
 	pm.maxPeers = maxPeers
-
-	fmt.Println("test")
 
 	// broadcast transactions
 	pm.txsCh = make(chan core.NewTxsEvent, txChanSize)
@@ -1167,6 +1168,30 @@ func (pm *ProtocolManager) BroadcastBlockFrags(frags *reedsolomon.Fragments, td 
 		fragindex0 = append(fragindex0, i)
 	}
 	peers := pm.peers.PeersWithoutBlock(frags.ID)
+
+	var peerDelay = make(map[*peer]int)
+	rand.Seed(time.Now().UnixNano())
+	for i, peer := range peers {
+		//peerDelay[peer] = rand.Intn(100)
+		peerDelay[peer] = i * 25
+	}
+
+	list1 := make([]*peer, 0, len(pm.peers))
+	list2 := make([]*peer, 0, len(pm.peers))
+	for _, peer := range peers {
+		if peerDelay[peer] < delayThreshold {
+			list1 = append(list1, peer)
+		} else {
+			list2 = append(list2, peer)
+		}
+	}
+
+	pm.BroadcastMyBlockFrags(list1, frags, td)
+	time.Sleep(time.Duration(1) * time.Second)
+	pm.BroadcastMyBlockFrags(list2, frags, td)
+}
+
+func (pm *ProtocolManager) BroadcastMyBlockFrags(peers []*peer, frags *reedsolomon.Fragments, td *big.Int) {
 	peerFragsNum := PeerFragsNum
 	if len(frags.Frags) < peerFragsNum {
 		peerFragsNum = len(frags.Frags)
