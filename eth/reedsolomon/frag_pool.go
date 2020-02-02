@@ -191,7 +191,7 @@ func (line *FragLine) InsertReq(bit *bitset.BitSet, peerID string) {
 	line.mutex.Lock()
 	defer line.mutex.Unlock()
 
-	newNode = NewReqNode(bit, peerID)
+	newNode := NewReqNode(bit, peerID)
 	newNode.Next = line.ReqHead
 	line.ReqHead = newNode
 	line.IsReqing = 1
