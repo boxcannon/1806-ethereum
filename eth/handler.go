@@ -1221,6 +1221,7 @@ func (pm *ProtocolManager) BroadcastMyBlockFrags(peers []*peer, frags *reedsolom
 			idx += 1
 		}
 	}
+	fmt.Println("Zirui~", "Broadcalist Block fragments : ", "Block hash", frags.ID, "recipients", len(peers))
 	log.Trace("Broadcalist Block fragments : ", "Block hash", frags.ID, "recipients", len(peers))
 }
 
