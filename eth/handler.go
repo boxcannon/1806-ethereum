@@ -1163,10 +1163,7 @@ func (pm *ProtocolManager) BroadcastTxFrags(frags *reedsolomon.Fragments) {
 
 func (pm *ProtocolManager) BroadcastBlockFrags(frags *reedsolomon.Fragments, td *big.Int) {
 	//Broadcast transaction fragments to a batch of peers not knowing about it
-	var fragindex0 []int
-	for i, _ := range frags.Frags {
-		fragindex0 = append(fragindex0, i)
-	}
+
 	peers := pm.peers.PeersWithoutBlock(frags.ID)
 
 	var peerDelay sync.Map
@@ -1195,6 +1192,10 @@ func (pm *ProtocolManager) BroadcastBlockFrags(frags *reedsolomon.Fragments, td 
 }
 
 func (pm *ProtocolManager) BroadcastMyBlockFrags(peers []*peer, frags *reedsolomon.Fragments, td *big.Int) {
+	var fragindex0 []int
+	for i, _ := range frags.Frags {
+		fragindex0 = append(fragindex0, i)
+	}
 	peerFragsNum := PeerFragsNum
 	if len(frags.Frags) < peerFragsNum {
 		peerFragsNum = len(frags.Frags)
