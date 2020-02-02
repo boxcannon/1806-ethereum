@@ -1169,17 +1169,20 @@ func (pm *ProtocolManager) BroadcastBlockFrags(frags *reedsolomon.Fragments, td 
 	}
 	peers := pm.peers.PeersWithoutBlock(frags.ID)
 
-	var peerDelay = make(map[*peer]int)
+	var peerDelay sync.Map
 	rand.Seed(time.Now().UnixNano())
 	for i, peer := range peers {
 		//peerDelay[peer] = rand.Intn(100)
-		peerDelay[peer] = i * 25
+		//peerDelay[peer] = i * 25
+		peerDelay.Store(peer, i*25)
 	}
 
-	list1 := make([]*peer, 0, len(pm.peers))
-	list2 := make([]*peer, 0, len(pm.peers))
+	list1 := make([]*peer, 0, len(pm.peers.peers))
+	list2 := make([]*peer, 0, len(pm.peers.peers))
+
 	for _, peer := range peers {
-		if peerDelay[peer] < delayThreshold {
+		v, _ := peerDelay.Load(peer)
+		if v.(int) < delayThreshold {
 			list1 = append(list1, peer)
 		} else {
 			list2 = append(list2, peer)
