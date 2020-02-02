@@ -1177,6 +1177,8 @@ func (pm *ProtocolManager) BroadcastBlockFrags(frags *reedsolomon.Fragments, td 
 	list1 := make([]*peer, 0, len(pm.peers.peers))
 	list2 := make([]*peer, 0, len(pm.peers.peers))
 
+	fmt.Println("ZRui: testlen", len(peers), frags.ID)
+
 	for _, peer := range peers {
 		v, _ := peerDelay.Load(peer)
 		if v.(int) < delayThreshold {
