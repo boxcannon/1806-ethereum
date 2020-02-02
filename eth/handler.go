@@ -77,7 +77,7 @@ const (
 	forceRequestCycle = time.Second
 
 	// delay threshold
-	delayThreshold = 70
+	delayThreshold = 50
 )
 
 var (
