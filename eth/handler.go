@@ -595,6 +595,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if frags.IsResp == 1 {
 			pm.fragpool.BigMutex.Lock()
 			line, flag := pm.fragpool.Load[frags.ID]
+			
 			// clear waiting list
 			oldHead := line.ClearReq()
 			pm.fragpool.BigMutex.Unlock()
