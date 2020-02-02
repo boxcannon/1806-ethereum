@@ -594,8 +594,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// a response to a former request
 		if frags.IsResp == 1 {
 			pm.fragpool.BigMutex.Lock()
-			line, flag := pm.fragpool.Load[frags.ID]
-			
+			line, _ := pm.fragpool.Load[frags.ID]
+
 			// clear waiting list
 			oldHead := line.ClearReq()
 			pm.fragpool.BigMutex.Unlock()
@@ -606,12 +606,14 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 					ID:   frags.ID,
 				})
 
-				if p, ok := pm.peers.SearchPeer(node.PeerID); !ok{
+
+				np, ok := pm.peers.SearchPeer(node.PeerID)
+				if !ok{
 					log.Warn("Cannot find exact peer!")
 					continue
 				}
 				log.Trace("Response to RequestTxFragMsg(recursive)","ID", respFrags.ID,"frag size",respFrags.Size())
-				p.SendTxFragments(respFrags)
+				np.SendTxFragments(respFrags)
 			}
 		}
 
