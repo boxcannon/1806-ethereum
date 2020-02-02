@@ -708,6 +708,33 @@ func (ps *peerSet) RandomPeer() (*peer, bool) {
 	}
 	return p, true
 }
+
+// return peer with exact ID
+func (ps *peerSet) SearchPeer(peerID string) (*peer, bool) {
+	ps.lock.RLock()
+	defer ps.lock.RUnlock()
+
+	if len(ps.peers) == 0 {
+		return nil, false
+	}
+
+	var p *peer
+	p = nil
+	for _, np := range ps.peers {
+		if np.id == peerID {
+			p = np
+			break
+		}
+	}
+
+	if p == nil {
+		return nil, false
+	}
+
+	return p, true
+}
+
+
 /*
 func (ps *peerSet) PeersWithoutTxFrag(hash common.Hash) []*peer {
 	ps.lock.RLock()
