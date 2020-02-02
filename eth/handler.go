@@ -1187,7 +1187,7 @@ func (pm *ProtocolManager) BroadcastBlockFrags(frags *reedsolomon.Fragments, td 
 	}
 
 	pm.BroadcastMyBlockFrags(list1, frags, td)
-	time.Sleep(time.Duration(1) * time.Second)
+	time.Sleep(1000 * time.Millisecond)
 	pm.BroadcastMyBlockFrags(list2, frags, td)
 }
 
@@ -1221,7 +1221,7 @@ func (pm *ProtocolManager) BroadcastMyBlockFrags(peers []*peer, frags *reedsolom
 			idx += 1
 		}
 	}
-	fmt.Println("Zirui~", "Broadcalist Block fragments : ", "Block hash", frags.ID, "recipients", len(peers))
+	fmt.Println("Zirui~", "Broadcalist Block fragments : ", "Block hash", frags.ID, "recipients", len(peers), time.Now().String())
 	log.Trace("Broadcalist Block fragments : ", "Block hash", frags.ID, "recipients", len(peers))
 }
 
