@@ -67,6 +67,9 @@ const (
 	// maximum number of total frags to send request
 	maxTotalFrag = 60
 
+	// request will not be sent to upper node when count result of bitmap exceeds the number
+	upperRequestNum = 50
+
 	// maximum number of decoded Fragments to store
 	maxDecodeNum = 1024
 
@@ -299,17 +302,39 @@ func (pm *ProtocolManager) removePeer(id string) {
 }
 
 // trigger a fragment requestFrags
-func (pm *ProtocolManager) requestFrags(idx common.Hash, fragType uint64) {
-	if peer, ok := pm.peers.RandomPeer(); !ok {
-		log.Warn("no peers, cannot request")
-		return
-	} else {
-		pm.fragpool.BigMutex.Lock()
-		bit := pm.fragpool.Load[idx].Bit
-		pm.fragpool.BigMutex.Unlock()
-		peer.SendRequest(idx, bit, fragType)
-		log.Trace("Send Frags Request","ID", idx, "Type", fragType)
+func (pm *ProtocolManager) requestFrags(idx common.Hash, fragType uint64, minHopPeer string) {
+	var p *peer
+	var ok bool
+
+	// satisfy minHop first
+	if p, ok = pm.peers.SearchPeer(minHopPeer); !ok {
+		if p, ok = pm.peers.RandomPeer(); !ok {
+			log.Warn("no peers, cannot request")
+			return
+		}
 	}
+	
+	pm.fragpool.BigMutex.Lock()
+	bit := pm.fragpool.Load[idx].Bit
+	pm.fragpool.BigMutex.Unlock()
+	p.SendRequest(idx, bit, fragType)
+	log.Trace("Send Frags Request","ID", idx, "Type", fragType)
+}
+
+func (pm *ProtocolManager) requestFragsByBitmap(idx common.Hash, fragType uint64, minHopPeer string, bit *bitset.BitSet) {
+	var p *peer
+	var ok bool
+
+	// satisfy minHop first
+	if p, ok = pm.peers.SearchPeer(minHopPeer); !ok {
+		if p, ok = pm.peers.RandomPeer(); !ok {
+			log.Warn("no peers, cannot request")
+			return
+		}
+	}
+	
+	p.SendRequest(idx, bit, fragType)
+	log.Trace("Send Frags Request(recursive)","ID", idx, "Type", fragType)
 }
 
 // inspect over whether need to requestFrags
@@ -331,7 +356,7 @@ func (pm *ProtocolManager) inspector() {
 					if temp[k] != v.Cnt {
 						temp[k] = v.Cnt
 					} else {
-						go pm.requestFrags(k,v.Type)
+						go pm.requestFrags(k,v.Type,v.MinHopPeer)
 					}
 				}
 			}
@@ -554,7 +579,45 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				panic("RS cannot decode")
 			}
 		} else if totalFrag >= maxTotalFrag && isDecoded == 0{
-			go pm.requestFrags(frags.ID, TxFragMsg)
+
+			pm.fragpool.BigMutex.Lock()
+			line, flag := pm.fragpool.Load[frags.ID]
+			pm.fragpool.BigMutex.Unlock()
+			if !flag {
+				fmt.Printf("\nOops! Tx Fragments have been dropped!\n")
+				break
+			}
+
+			go pm.requestFrags(frags.ID, TxFragMsg, line.MinHopPeer)
+		}
+
+		// a response to a former request
+		if frags.IsResp == 1 {
+			pm.fragpool.BigMutex.Lock()
+			line, flag := pm.fragpool.Load[frags.ID]
+
+			// clear waiting list
+			line.mutex.Lock()
+			oldHead = line.ReqHead
+			line.ReqHead = nil
+			line.IsReqing = 0
+			line.mutex.Unlock()
+			
+			pm.fragpool.BigMutex.Unlock()
+
+			for node := oldHead; node!= nil; node = node.Next {
+				respFrags = pm.fragpool.Prepare(&reedsolomon.Request{
+					Load: node.Bit,
+					ID:   frags.ID,
+				})
+
+				if p, ok := pm.peers.SearchPeer(node.PeerID); !ok{
+					log.Warn("Cannot find exact peer!")
+					continue
+				}
+				log.Trace("Response to RequestTxFragMsg(recursive)","ID", respFrags.ID,"frag size",respFrags.Size())
+				p.SendTxFragments(respFrags)
+			}
 		}
 
 	case msg.Code == BlockFragMsg:
@@ -640,7 +703,16 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				log.Debug("cannot RS decode")
 			}
 		} else if totalFrag >= maxTotalFrag && isDecoded == 0 {
-			go pm.requestFrags(frags.ID, BlockFragMsg)
+
+			pm.fragpool.BigMutex.Lock()
+			line, flag := pm.fragpool.Load[frags.ID]
+			pm.fragpool.BigMutex.Unlock()
+			if !flag {
+				fmt.Printf("\nOops! Block Fragments have been dropped!\n")
+				break
+			}
+
+			go pm.requestFrags(frags.ID, BlockFragMsg, line.MinHopPeer)
 		}
 
 	case msg.Code == RequestTxFragMsg:
@@ -652,17 +724,30 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		// already decode successfully
 		pm.fragpool.BigMutex.Lock()
-		_, flag := pm.fragpool.Load[req.ID]
+		line, flag := pm.fragpool.Load[req.ID]
 		pm.fragpool.BigMutex.Unlock()
 		if !flag {
 			fmt.Printf("\nOops! Tx Fragments have been dropped!\n")
 			break
-		} else {
-			frags = pm.fragpool.Prepare(&reedsolomon.Request{
-				Load: bitset.From(req.Set),
-				ID:   req.ID,
-			})
 		}
+
+		// deliver request to upper node
+		bit := bitset.From(req.Set)
+		merge_bit := bit.Union(line.Bit)
+		if merge_bit.Count() < upperRequestNum {
+
+			// insert it as a reponse-waiting request
+			line.InsertReq(bit, p.id)
+
+			go pm.requestFragsByBitmap(req.ID, TxFragMsg, line.MinHopPeer, merge_bit)
+			break
+		}
+
+		// return fragments immediately
+		frags = pm.fragpool.Prepare(&reedsolomon.Request{
+			Load: bit,
+			ID:   req.ID,
+		})
 		log.Trace("Response to RequestTxFragMsg","ID", frags.ID,"frag size",frags.Size())
 		return p.SendTxFragments(frags)
 		//p2p.Send(p.rw, TxFragMsg, frags)

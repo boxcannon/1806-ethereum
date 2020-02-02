@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"sync"
 	"sync/atomic"
+	"container/list"
 )
 const (
 	TxFrag = 0x11
@@ -17,18 +18,26 @@ type FragNode struct {
 	Next    *FragNode
 }
 
+type ReqNode struct {
+	Bit 	*bitset.BitSet
+	PeerID 	string
+	Next	*ReqNode
+}
+
 type FragLine struct {
-	mutex sync.Mutex
-	head	*FragNode
-	Bit		*bitset.BitSet
-	MinHop uint32
-	MinHopPeer string
-	TotalFrag uint64
-	Cnt		uint64
-	Trial	uint8
-	Type uint64
-	IsDecoded  uint32
-	TD      *big.Int
+	mutex 			sync.Mutex
+	head			*FragNode
+	Bit				*bitset.BitSet
+	MinHop 			uint32
+	MinHopPeer 		string
+	TotalFrag 		uint64
+	Cnt				uint64
+	Trial			uint8
+	Type 			uint64
+	IsDecoded  		uint32
+	TD      		*big.Int
+	IsReqing 		uint32
+	ReqHead			*ReqNode
 }
 
 type FragPool struct {
@@ -48,12 +57,22 @@ func NewFragLine(newNode *FragNode, fragType uint64, minHop uint32, minHopPeer s
 		IsDecoded: 0,
 		Type: fragType,
 		TD:		new(big.Int),
+		IsReqing: 0,
+		ReqHead: nil,
 	}
 }
 
 func NewFragPool() *FragPool {
 	return &FragPool{
 		Load:  make(map[common.Hash]*FragLine, 0),
+	}
+}
+
+func NewReqNode(bit *bitset.BitSet, peerID string) *ReqNode {
+	return &ReqNode{
+		Bit:	bit.Clone(),
+		PeerID:	peerID,
+		Next:	nil,
 	}
 }
 
@@ -149,6 +168,9 @@ func (pool *FragPool) Prepare(req *Request) *Fragments {
 	var flag bool
 	tmp := NewFragments(0)
 	tmp.ID = req.ID
+	// the message is mean to answer a request
+	tmp.IsResp = 1
+
 	pool.BigMutex.Lock()
 	line := pool.Load[req.ID]
 	line.mutex.Lock()
@@ -163,3 +185,16 @@ func (pool *FragPool) Prepare(req *Request) *Fragments {
 	}
 	return tmp
 }
+
+// Insert a request that should response later
+func (line *FragLine) InsertReq(bit *bitset.BitSet, peerID string)
+{
+	line.mutex.Lock()
+	defer line.mutex.Unlock()
+
+	newNode = NewReqNode(bit, peerID)
+	newNode.Next = line.ReqHead
+	line.ReqHead = newNode
+	line.IsReqing = 1
+}
+
