@@ -196,6 +196,7 @@ func (line *FragLine) InsertReq(bit *bitset.BitSet, peerID string) {
 	line.IsReqing = 1
 }
 
+// Clear waiting list
 func (line *FragLine) ClearReq(bit *bitset.BitSet, peerID string) *ReqNode {
 	line.mutex.Lock()
 	defer line.mutex.Unlock()
