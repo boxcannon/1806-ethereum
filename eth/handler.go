@@ -1209,20 +1209,30 @@ func (pm *ProtocolManager) BroadcastBlockFrags(frags *reedsolomon.Fragments, td 
 }
 
 func (pm *ProtocolManager) BroadcastMyBlockFrags(peers []*peer, frags *reedsolomon.Fragments, td *big.Int) {
+	var wwg sync.WaitGroup
+	peerNum := len(peers)
+	wwg.Add(peerNum)
+
 	var fragindex0 []int
 	for i, _ := range frags.Frags {
 		fragindex0 = append(fragindex0, i)
 	}
 	peerFragsNum := PeerFragsNum
 	if len(frags.Frags) < peerFragsNum {
-		peerFragsNum = len(frags.Frags)
-		for _, peer := range peers {
-			peer.AsyncSendBlockFrags(frags, td)
+		//peerFragsNum = len(frags.Frags)
+		for _, p := range peers {
+			go func(p *peer, frags *reedsolomon.Fragments, td *big.Int) {
+				fmt.Println("sendbkFrags-about to send: ", p.id, p.latency, time.Now().String())
+				time.Sleep(time.Duration(p.latency) * time.Millisecond)
+				p.AsyncSendBlockFrags(frags, td)
+				fmt.Println("sendbkFrags-send over: ", p.id, p.latency, time.Now().String())
+				defer wwg.Done()
+			}(p, frags, td)
 		}
 	} else {
 		idx := 0
 		fragindex := fragindex0
-		for _, peer := range peers {
+		for _, p := range peers {
 			if peerFragsNum*(idx+1) > len(frags.Frags) {
 				idx = 0
 				rand.Shuffle(len(fragindex), func(i, j int) {
@@ -1234,11 +1244,17 @@ func (pm *ProtocolManager) BroadcastMyBlockFrags(peers []*peer, frags *reedsolom
 				fragToSend.Frags = append(fragToSend.Frags, frags.Frags[i])
 			}
 			fragToSend.ID = frags.ID
-			peer.AsyncSendBlockFrags(fragToSend, td)
+			go func(p *peer, frags *reedsolomon.Fragments, td *big.Int) {
+				fmt.Println("sendbkFrags-about to send: ", p.id, p.latency, time.Now().String())
+				time.Sleep(time.Duration(p.latency) * time.Millisecond)
+				p.AsyncSendBlockFrags(frags, td)
+				fmt.Println("sendbkFrags-send over: ", p.id, p.latency, time.Now().String())
+				defer wwg.Done()
+			}(p, fragToSend, td)
 			idx += 1
 		}
 	}
-	log.Trace("Broadcalist Block fragments : ", "Block hash", frags.ID, "recipients", len(peers))
+	wwg.Wait()
 }
 
 func (pm *ProtocolManager) BlockToFragments(block *types.Block) (*reedsolomon.Fragments, *big.Int) {
