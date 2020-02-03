@@ -1115,14 +1115,34 @@ func (pm *ProtocolManager) BroadcastReceivedFrags(frags *reedsolomon.Fragments, 
 	switch msgCode {
 	case TxFragMsg:
 		peers := pm.peers.PeersWithoutTxAndPeer(frags.ID, from)
-		for _, peer := range peers {
-			peer.AsyncSendTxFrags(frags)
+		var wwg sync.WaitGroup
+		peerNum := len(peers)
+		wwg.Add(peerNum)
+		for _, p := range peers {
+			go func(p *peer, frags *reedsolomon.Fragments) {
+				fmt.Println("forwardtxFrags-about to send: ", p.id, p.latency, time.Now().String())
+				time.Sleep(time.Duration(p.latency) * time.Millisecond)
+				p.AsyncSendTxFrags(frags)
+				fmt.Println("forwardFrags-send over: ", p.id, p.latency, time.Now().String())
+				defer wwg.Done()
+			}(p, frags)
 		}
+		wwg.Wait()
 	case BlockFragMsg:
 		peers := pm.peers.PeersWithoutBlockAndPeer(frags.ID, from)
-		for _, peer := range peers {
-			peer.AsyncSendBlockFrags(frags, td)
+		var wwg sync.WaitGroup
+		peerNum := len(peers)
+		wwg.Add(peerNum)
+		for _, p := range peers {
+			go func(p *peer, frags *reedsolomon.Fragments, td *big.Int) {
+				fmt.Println("forwardbkFrags-about to send: ", p.id, p.latency, time.Now().String())
+				time.Sleep(time.Duration(p.latency) * time.Millisecond)
+				p.AsyncSendBlockFrags(frags, td)
+				fmt.Println("forwardbkFrags-send over: ", p.id, p.latency, time.Now().String())
+				defer wwg.Done()
+			}(p, frags, td)
 		}
+		wwg.Wait()
 	}
 }
 
@@ -1134,15 +1154,25 @@ func (pm *ProtocolManager) BroadcastTxFrags(frags *reedsolomon.Fragments) {
 	}
 	peers := pm.peers.PeersWithoutTx(frags.ID)
 	peerFragsNum := PeerFragsNum
+
+	var wwg sync.WaitGroup
+	peerNum := len(peers)
+	wwg.Add(peerNum)
+
 	if len(frags.Frags) < peerFragsNum {
-		peerFragsNum = len(frags.Frags)
-		for _, peer := range peers {
-			peer.AsyncSendTxFrags(frags)
+		for _, p := range peers {
+			go func(p *peer, frags *reedsolomon.Fragments) {
+				fmt.Println("sendtxFrags-about to send: ", p.id, p.latency, time.Now().String())
+				time.Sleep(time.Duration(p.latency) * time.Millisecond)
+				p.AsyncSendTxFrags(frags)
+				fmt.Println("sendtxFrags-send over: ", p.id, p.latency, time.Now().String())
+				defer wwg.Done()
+			}(p, frags)
 		}
 	} else {
 		idx := 0
 		fragindex := fragindex0
-		for _, peer := range peers {
+		for _, p := range peers {
 			if peerFragsNum*(idx+1) > len(frags.Frags) {
 				idx = 0
 				rand.Shuffle(len(fragindex), func(i, j int) {
@@ -1154,11 +1184,18 @@ func (pm *ProtocolManager) BroadcastTxFrags(frags *reedsolomon.Fragments) {
 				fragToSend.Frags = append(fragToSend.Frags, frags.Frags[i])
 			}
 			fragToSend.ID = frags.ID
-			peer.AsyncSendTxFrags(fragToSend)
+			go func(p *peer, frags *reedsolomon.Fragments) {
+				fmt.Println("sendtxFrags-about to send: ", p.id, p.latency, time.Now().String())
+				time.Sleep(time.Duration(p.latency) * time.Millisecond)
+				p.AsyncSendTxFrags(frags)
+				fmt.Println("sendtxFrags-send over: ", p.id, p.latency, time.Now().String())
+				defer wwg.Done()
+			}(p, fragToSend)
 			idx += 1
 		}
 	}
-	log.Trace("Broadcalist Tx fragments : ", "Tx hash", frags.ID, "recipients", len(peers))
+	wwg.Wait()
+	//log.Trace("Broadcalist Tx fragments : ", "Tx hash", frags.ID, "recipients", len(peers))
 }
 
 func (pm *ProtocolManager) BroadcastBlockFrags(frags *reedsolomon.Fragments, td *big.Int) {
@@ -1166,18 +1203,8 @@ func (pm *ProtocolManager) BroadcastBlockFrags(frags *reedsolomon.Fragments, td 
 
 	peers := pm.peers.PeersWithoutBlock(frags.ID)
 
-	//var peerDelay sync.Map
-	//rand.Seed(time.Now().UnixNano())
-	//for i, peer := range peers {
-	//	//peerDelay[peer] = rand.Intn(100)
-	//	//peerDelay[peer] = i * 25
-	//	peerDelay.Store(peer, i*25)
-	//}
-
 	list1 := make([]*peer, 0, len(pm.peers.peers))
 	list2 := make([]*peer, 0, len(pm.peers.peers))
-
-	//fmt.Println("ZRui: testlen", len(peers), frags.ID)
 
 	for _, peer := range peers {
 		fmt.Println("zirui:", peer.id, peer.latency)
@@ -1188,9 +1215,9 @@ func (pm *ProtocolManager) BroadcastBlockFrags(frags *reedsolomon.Fragments, td 
 		}
 	}
 
-	fmt.Println("peers:", peers)
-	fmt.Println("list1:", list1)
-	fmt.Println("list2:", list2)
+	//fmt.Println("peers:", peers)
+	//fmt.Println("list1:", list1)
+	//fmt.Println("list2:", list2)
 
 	var wg sync.WaitGroup
 	wg.Add(2)
