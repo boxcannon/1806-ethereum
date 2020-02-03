@@ -1192,17 +1192,23 @@ func (pm *ProtocolManager) BroadcastBlockFrags(frags *reedsolomon.Fragments, td 
 	fmt.Println("list1:", list1)
 	fmt.Println("list2:", list2)
 
-	limiter := time.NewTicker(1000 * time.Millisecond)
-	pm.BroadcastMyBlockFrags(list1, frags, td)
-	select {
-	case <-limiter.C:
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		fmt.Println("***list1 send", list1, time.Now().String(), frags.ID)
+		pm.BroadcastMyBlockFrags(list1, frags, td)
+		wg.Done()
+	}()
+	time.Sleep(time.Millisecond * 200)
+	go func() {
+		fmt.Println("***list2 send", list2, time.Now().String(), frags.ID)
 		pm.BroadcastMyBlockFrags(list2, frags, td)
-		limiter.Stop()
-	}
+		wg.Done()
+	}()
+	wg.Wait()
 }
 
 func (pm *ProtocolManager) BroadcastMyBlockFrags(peers []*peer, frags *reedsolomon.Fragments, td *big.Int) {
-	fmt.Println("Zirui~", "Broadcalist Block fragments : ", "Block hash", frags.ID, "recipients", len(peers), time.Now().String())
 	var fragindex0 []int
 	for i, _ := range frags.Frags {
 		fragindex0 = append(fragindex0, i)

@@ -290,13 +290,6 @@ func (p *peer) AsyncSendTransactions(txs []*types.Transaction) {
 }
 
 func (p *peer) AsyncSendTxFrags(frags *reedsolomon.Fragments) {
-	fmt.Println("sendtxFrags-about to send: ", p.id, p.latency, time.Now().String())
-	limiter := time.NewTicker(time.Duration(p.latency) * time.Millisecond)
-	select {
-	case <-limiter.C:
-		limiter.Stop()
-	}
-
 	select {
 	case p.queuedTxFrags <- frags:
 		// Mark all the transactions as known, but ensure we don't overflow our limits
@@ -307,18 +300,10 @@ func (p *peer) AsyncSendTxFrags(frags *reedsolomon.Fragments) {
 	default:
 		p.Log().Debug("Dropping transaction fragments propagation", "count", len(frags.Frags))
 	}
-
-	fmt.Println("sendtxFrags-send over: ", p.id, p.latency, time.Now().String())
 }
 
 func (p *peer) AsyncSendBlockFrags(frags *reedsolomon.Fragments, td *big.Int) {
-	fmt.Println("sendbkFrags-about to send: ", p.id, p.latency, time.Now().String())
-	limiter := time.NewTicker(time.Duration(p.latency) * time.Millisecond)
-	select {
-	case <-limiter.C:
-		limiter.Stop()
-	}
-
+	time.Sleep(time.Duration(p.latency) * time.Millisecond)
 	select {
 	case p.queuedBlockFrags <- &propFragEvent{frags: frags, td: td}:
 		// Mark all the transactions as known, but ensure we don't overflow our limits
@@ -329,8 +314,6 @@ func (p *peer) AsyncSendBlockFrags(frags *reedsolomon.Fragments, td *big.Int) {
 	default:
 		p.Log().Debug("Dropping block fragments propagation", "count", len(frags.Frags))
 	}
-
-	fmt.Println("sendbkFrags-send over: ", p.id, p.latency, time.Now().String())
 }
 
 // SendNewBlockHashes announces the availability of a number of blocks through
