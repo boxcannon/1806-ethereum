@@ -1177,7 +1177,7 @@ func (pm *ProtocolManager) BroadcastBlockFrags(frags *reedsolomon.Fragments, td 
 	list1 := make([]*peer, 0, len(pm.peers.peers))
 	list2 := make([]*peer, 0, len(pm.peers.peers))
 
-	fmt.Println("ZRui: testlen", len(peers), frags.ID)
+	//fmt.Println("ZRui: testlen", len(peers), frags.ID)
 
 	for _, peer := range peers {
 		fmt.Println("zirui:", peer.id, peer.latency)
@@ -1193,7 +1193,11 @@ func (pm *ProtocolManager) BroadcastBlockFrags(frags *reedsolomon.Fragments, td 
 	fmt.Println("list2:", list2)
 
 	pm.BroadcastMyBlockFrags(list1, frags, td)
-	time.Tick(1000 * time.Millisecond)
+	limiter := time.NewTicker(1000 * time.Millisecond)
+	select {
+	case <-limiter.C:
+		limiter.Stop()
+	}
 	pm.BroadcastMyBlockFrags(list2, frags, td)
 }
 
