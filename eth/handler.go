@@ -1192,7 +1192,7 @@ func (pm *ProtocolManager) BroadcastBlockFrags(frags *reedsolomon.Fragments, td 
 	fmt.Println("list2:", list2)
 
 	pm.BroadcastMyBlockFrags(list1, frags, td)
-	time.Sleep(1000 * time.Millisecond)
+	time.Tick(1000 * time.Millisecond)
 	pm.BroadcastMyBlockFrags(list2, frags, td)
 }
 

@@ -647,6 +647,8 @@ func (ps *peerSet) PeersWithoutBlock(hash common.Hash) []*peer {
 	defer ps.lock.RUnlock()
 
 	list := make([]*peer, 0, len(ps.peers))
+	fmt.Println("PeersWBtest:", len(list), len(ps.peers))
+
 	for _, p := range ps.peers {
 		if !p.knownBlocks.Contains(hash) {
 			list = append(list, p)
