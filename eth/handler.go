@@ -475,7 +475,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 func (pm *ProtocolManager) handleMsg(p *peer) error {
 	// Read the next message from the remote peer, and ensure it's fully consumed
 	msg, err := p.rw.ReadMsg()
-	fmt.Printf("lzr:msg received, code: %d,from %x\n\n", msg.Code, p.id)
+	//fmt.Printf("lzr:msg received, code: %d,from %x\n\n", msg.Code, p.id)
 	if err != nil {
 		return err
 	}
@@ -1223,7 +1223,7 @@ func (pm *ProtocolManager) BroadcastMyBlockFrags(peers []*peer, frags *reedsolom
 		for _, p := range peers {
 			go func(p *peer, frags *reedsolomon.Fragments, td *big.Int) {
 				fmt.Println("sendbkFrags-about to send: ", p.id, p.latency, time.Now().String())
-				time.Sleep(time.Duration(p.latency) * time.Millisecond)
+				time.Sleep(time.Duration(p.latency) * time.Microsecond)
 				p.AsyncSendBlockFrags(frags, td)
 				fmt.Println("sendbkFrags-send over: ", p.id, p.latency, time.Now().String())
 				defer wwg.Done()
@@ -1246,7 +1246,7 @@ func (pm *ProtocolManager) BroadcastMyBlockFrags(peers []*peer, frags *reedsolom
 			fragToSend.ID = frags.ID
 			go func(p *peer, frags *reedsolomon.Fragments, td *big.Int) {
 				fmt.Println("sendbkFrags-about to send: ", p.id, p.latency, time.Now().String())
-				time.Sleep(time.Duration(p.latency) * time.Millisecond)
+				time.Sleep(time.Duration(p.latency) * time.Microsecond)
 				p.AsyncSendBlockFrags(frags, td)
 				fmt.Println("sendbkFrags-send over: ", p.id, p.latency, time.Now().String())
 				defer wwg.Done()
