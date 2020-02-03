@@ -85,6 +85,8 @@ type propFragEvent struct {
 type peer struct {
 	id string
 
+	latency int
+
 	*p2p.Peer
 	rw p2p.MsgReadWriter
 
@@ -106,11 +108,13 @@ type peer struct {
 }
 
 func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
+	rand.Seed(time.Now().UnixNano())
 	return &peer{
 		Peer:             p,
 		rw:               rw,
 		version:          version,
 		id:               fmt.Sprintf("%x", p.ID().Bytes()[:8]),
+		latency:          rand.Intn(1000),
 		knownTxs:         mapset.NewSet(),
 		knownBlocks:      mapset.NewSet(),
 		queuedTxs:        make(chan []*types.Transaction, maxQueuedTxs),
@@ -218,6 +222,7 @@ func (p *peer) MarkTransaction(hash common.Hash) {
 	}
 	p.knownTxs.Add(hash)
 }
+
 /*
 func (p *peer) MarkFragment(hash common.Hash) {
 	for p.knownFrags.Cardinality() >= maxKnownFrags {
@@ -229,13 +234,13 @@ func (p *peer) MarkFragment(hash common.Hash) {
 
 func (p *peer) SendRequest(idx common.Hash, s *bitset.BitSet, fragType uint64) {
 	// Try to send proper msg.code, may crash with almost 0 probability?
-	fmt.Printf("Send Request ID: %x, bitset: %x, fragType: %d", idx,s.Bytes(),fragType)
+	fmt.Printf("Send Request ID: %x, bitset: %x, fragType: %d", idx, s.Bytes(), fragType)
 	bitset := s.Bytes()
-		if p != nil {
-			p2p.Send(p.rw, fragType + 2, []interface{}{idx, &bitset})
-		} else {
-			fmt.Printf("SendRequest :: p is nil\n, send failed")
-		}
+	if p != nil {
+		p2p.Send(p.rw, fragType+2, []interface{}{idx, &bitset})
+	} else {
+		fmt.Printf("SendRequest :: p is nil\n, send failed")
+	}
 }
 
 // SendTransactions sends transactions to the peer and includes the hashes
@@ -285,6 +290,7 @@ func (p *peer) AsyncSendTransactions(txs []*types.Transaction) {
 }
 
 func (p *peer) AsyncSendTxFrags(frags *reedsolomon.Fragments) {
+
 	select {
 	case p.queuedTxFrags <- frags:
 		// Mark all the transactions as known, but ensure we don't overflow our limits
@@ -664,12 +670,12 @@ func (ps *peerSet) PeersWithoutTx(hash common.Hash) []*peer {
 	return list
 }
 
-func (ps *peerSet) PeersWithoutTxAndPeer(hash common.Hash, pout *peer) []*peer{
+func (ps *peerSet) PeersWithoutTxAndPeer(hash common.Hash, pout *peer) []*peer {
 	ps.lock.RLock()
 	defer ps.lock.RUnlock()
 
 	list := make([]*peer, 0, len(ps.peers))
-	for _, p :=range ps.peers {
+	for _, p := range ps.peers {
 		if p.id != pout.id && !p.knownTxs.Contains(hash) {
 			list = append(list, p)
 		}
@@ -677,12 +683,12 @@ func (ps *peerSet) PeersWithoutTxAndPeer(hash common.Hash, pout *peer) []*peer{
 	return list
 }
 
-func (ps *peerSet) PeersWithoutBlockAndPeer(hash common.Hash, pout *peer) []*peer{
+func (ps *peerSet) PeersWithoutBlockAndPeer(hash common.Hash, pout *peer) []*peer {
 	ps.lock.RLock()
 	defer ps.lock.RUnlock()
 
 	list := make([]*peer, 0, len(ps.peers))
-	for _, p :=range ps.peers {
+	for _, p := range ps.peers {
 		if p.id != pout.id && !p.knownBlocks.Contains(hash) {
 			list = append(list, p)
 		}
@@ -708,6 +714,7 @@ func (ps *peerSet) RandomPeer() (*peer, bool) {
 	}
 	return p, true
 }
+
 /*
 func (ps *peerSet) PeersWithoutTxFrag(hash common.Hash) []*peer {
 	ps.lock.RLock()

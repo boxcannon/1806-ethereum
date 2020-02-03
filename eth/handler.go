@@ -77,7 +77,7 @@ const (
 	forceRequestCycle = time.Second
 
 	// delay threshold
-	delayThreshold = 40
+	delayThreshold = 500
 )
 
 var (
@@ -1180,8 +1180,7 @@ func (pm *ProtocolManager) BroadcastBlockFrags(frags *reedsolomon.Fragments, td 
 	fmt.Println("ZRui: testlen", len(peers), frags.ID)
 
 	for _, peer := range peers {
-		v, _ := peerDelay.Load(peer)
-		if v.(int) < delayThreshold {
+		if peer.latency < delayThreshold {
 			list1 = append(list1, peer)
 		} else {
 			list2 = append(list2, peer)
