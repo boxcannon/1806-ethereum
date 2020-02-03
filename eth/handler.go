@@ -1180,6 +1180,7 @@ func (pm *ProtocolManager) BroadcastBlockFrags(frags *reedsolomon.Fragments, td 
 	fmt.Println("ZRui: testlen", len(peers), frags.ID)
 
 	for _, peer := range peers {
+		fmt.Println("zirui:", peer.id, peer.latency)
 		if peer.latency < delayThreshold {
 			list1 = append(list1, peer)
 		} else {
