@@ -1194,12 +1194,11 @@ func (pm *ProtocolManager) BroadcastBlockFrags(frags *reedsolomon.Fragments, td 
 
 	limiter := time.NewTicker(1000 * time.Millisecond)
 	pm.BroadcastMyBlockFrags(list1, frags, td)
-
 	select {
 	case <-limiter.C:
+		pm.BroadcastMyBlockFrags(list2, frags, td)
 		limiter.Stop()
 	}
-	pm.BroadcastMyBlockFrags(list2, frags, td)
 }
 
 func (pm *ProtocolManager) BroadcastMyBlockFrags(peers []*peer, frags *reedsolomon.Fragments, td *big.Int) {
