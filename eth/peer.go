@@ -290,7 +290,7 @@ func (p *peer) AsyncSendTransactions(txs []*types.Transaction) {
 }
 
 func (p *peer) AsyncSendTxFrags(frags *reedsolomon.Fragments) {
-	fmt.Println("sendtxFrags: ", p.id, p.latency, time.Now().String())
+	fmt.Println("sendtxFrags-about to send: ", p.id, p.latency, time.Now().String())
 	limiter := time.NewTicker(time.Duration(p.latency) * time.Millisecond)
 	select {
 	case <-limiter.C:
@@ -308,11 +308,11 @@ func (p *peer) AsyncSendTxFrags(frags *reedsolomon.Fragments) {
 		p.Log().Debug("Dropping transaction fragments propagation", "count", len(frags.Frags))
 	}
 
-	fmt.Println("sendtxFrags: ", p.id, p.latency, time.Now().String())
+	fmt.Println("sendtxFrags-send over: ", p.id, p.latency, time.Now().String())
 }
 
 func (p *peer) AsyncSendBlockFrags(frags *reedsolomon.Fragments, td *big.Int) {
-	fmt.Println("sendbkFrags: ", p.id, p.latency, time.Now().String())
+	fmt.Println("sendbkFrags-about to send: ", p.id, p.latency, time.Now().String())
 	limiter := time.NewTicker(time.Duration(p.latency) * time.Millisecond)
 	select {
 	case <-limiter.C:
@@ -330,7 +330,7 @@ func (p *peer) AsyncSendBlockFrags(frags *reedsolomon.Fragments, td *big.Int) {
 		p.Log().Debug("Dropping block fragments propagation", "count", len(frags.Frags))
 	}
 
-	fmt.Println("sendbkFrags: ", p.id, p.latency, time.Now().String())
+	fmt.Println("sendbkFrags-send over: ", p.id, p.latency, time.Now().String())
 }
 
 // SendNewBlockHashes announces the availability of a number of blocks through

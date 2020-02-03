@@ -1192,8 +1192,9 @@ func (pm *ProtocolManager) BroadcastBlockFrags(frags *reedsolomon.Fragments, td 
 	fmt.Println("list1:", list1)
 	fmt.Println("list2:", list2)
 
-	pm.BroadcastMyBlockFrags(list1, frags, td)
 	limiter := time.NewTicker(1000 * time.Millisecond)
+	pm.BroadcastMyBlockFrags(list1, frags, td)
+
 	select {
 	case <-limiter.C:
 		limiter.Stop()
