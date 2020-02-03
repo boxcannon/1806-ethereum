@@ -74,7 +74,7 @@ const (
 	PeerFragsNum = 20
 
 	// time intervall to force request.
-	forceRequestCycle = time.Second
+	forceRequestCycle = 5 * time.Second
 
 	// delay threshold
 	delayThreshold = 500
@@ -1199,8 +1199,7 @@ func (pm *ProtocolManager) BroadcastBlockFrags(frags *reedsolomon.Fragments, td 
 		pm.BroadcastMyBlockFrags(list1, frags, td)
 		defer wg.Done()
 	}()
-	tk := time.Tick(time.Millisecond * 100)
-	<-tk
+	time.Sleep(time.Millisecond * 100)
 	go func() {
 		fmt.Println("***list2 send", list2, time.Now().String(), frags.ID)
 		pm.BroadcastMyBlockFrags(list2, frags, td)
@@ -1224,8 +1223,7 @@ func (pm *ProtocolManager) BroadcastMyBlockFrags(peers []*peer, frags *reedsolom
 		for _, p := range peers {
 			go func(p *peer, frags *reedsolomon.Fragments, td *big.Int) {
 				fmt.Println("sendbkFrags-about to send: ", p.id, p.latency, time.Now().String())
-				tk := time.Tick(time.Duration(p.latency) * time.Millisecond)
-				<-tk
+				time.Sleep(time.Duration(p.latency) * time.Millisecond)
 				p.AsyncSendBlockFrags(frags, td)
 				fmt.Println("sendbkFrags-send over: ", p.id, p.latency, time.Now().String())
 				defer wwg.Done()
@@ -1248,8 +1246,7 @@ func (pm *ProtocolManager) BroadcastMyBlockFrags(peers []*peer, frags *reedsolom
 			fragToSend.ID = frags.ID
 			go func(p *peer, frags *reedsolomon.Fragments, td *big.Int) {
 				fmt.Println("sendbkFrags-about to send: ", p.id, p.latency, time.Now().String())
-				tk := time.Tick(time.Duration(p.latency) * time.Microsecond)
-				<-tk
+				time.Sleep(time.Duration(p.latency) * time.Millisecond)
 				p.AsyncSendBlockFrags(frags, td)
 				fmt.Println("sendbkFrags-send over: ", p.id, p.latency, time.Now().String())
 				defer wwg.Done()
