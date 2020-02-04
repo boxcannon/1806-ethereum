@@ -135,7 +135,7 @@ func (p *Peer) ID() enode.ID {
 }
 
 // returns the peer's node latency
-func (p *Peer) Latency() time.Duration {
+func (p *Peer) Latency() mclock.AbsTime {
 	return p.latency
 }
 

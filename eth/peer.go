@@ -19,6 +19,7 @@ package eth
 import (
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common/mclock"
 	"github.com/ethereum/go-ethereum/eth/reedsolomon"
 	"github.com/willf/bitset"
 	"math/big"
@@ -226,7 +227,7 @@ func (p *peer) MarkFragment(hash common.Hash) {
 	p.knownFrags.Add(hash)
 }
 */
-func (p *peer) GetLatency() time.Duration {
+func (p *peer) GetLatency() mclock.AbsTime {
 	return p.Peer.Latency()
 }
 
