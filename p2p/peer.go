@@ -297,7 +297,9 @@ func (p *Peer) handle(msg Msg) error {
 	case msg.Code == pongMsg:
 		var pingTime time.Time
 		rlp.Decode(msg.Payload, &pingTime)
+		fmt.Printf("p2p.Peer handle :: pingTime: %v\nReceivedAt: %v\n", pingTime, msg.ReceivedAt)
 		latency := msg.ReceivedAt.Sub(pingTime)
+		fmt.Printf("latency: %v\n\n", latency)
 		p.latency = latency
 
 

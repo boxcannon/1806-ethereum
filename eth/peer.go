@@ -263,7 +263,7 @@ func (p *peer) SendTxFragments(frags *reedsolomon.Fragments) error {
 }
 
 func (p *peer) SendBlockFragments(frags *reedsolomon.Fragments, td *big.Int) error {
-	fmt.Printf("peer latency: %v", p.GetLatency())
+	fmt.Printf("peer latency: %v\n", p.GetLatency())
 	p.knownBlocks.Add(frags.ID)
 	for p.knownBlocks.Cardinality() >= maxKnownBlocks {
 		p.knownBlocks.Pop()
