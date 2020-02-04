@@ -113,7 +113,7 @@ type Peer struct {
 	protoErr chan error
 	closed   chan struct{}
 	disc     chan DiscReason
-	latency time.Duration
+	latency mclock.AbsTime
 
 	// events receives message send / receive events if set
 	events *event.Feed
@@ -261,7 +261,7 @@ func (p *Peer) pingLoop() {
 	for {
 		select {
 		case <-ping.C:
-			if err := SendItems(p.rw, pingMsg, time.Now()); err != nil {
+			if err := SendItems(p.rw, pingMsg, mclock.Now()); err != nil {
 				p.protoErr <- err
 				return
 			}
@@ -291,14 +291,14 @@ func (p *Peer) readLoop(errc chan<- error) {
 func (p *Peer) handle(msg Msg) error {
 	switch {
 	case msg.Code == pingMsg:
-		var pingTime time.Time
+		var pingTime mclock.AbsTime
 		rlp.Decode(msg.Payload, &pingTime)
 		go SendItems(p.rw, pongMsg, pingTime)
 	case msg.Code == pongMsg:
-		var pingTime time.Time
+		var pingTime mclock.AbsTime
 		rlp.Decode(msg.Payload, &pingTime)
 		fmt.Printf("p2p.Peer handle :: pingTime: %v\nReceivedAt: %v\n", pingTime, msg.ReceivedAt)
-		latency := msg.ReceivedAt.Sub(pingTime)
+		latency := mclock.Now() - pingTime
 		fmt.Printf("latency: %v\n\n", latency)
 		p.latency = latency
 
