@@ -226,6 +226,9 @@ func (p *peer) MarkFragment(hash common.Hash) {
 	p.knownFrags.Add(hash)
 }
 */
+func (p *peer) GetLatency() time.Duration {
+	return p.Peer.Latency()
+}
 
 func (p *peer) SendRequest(idx common.Hash, s *bitset.BitSet, fragType uint64) {
 	// Try to send proper msg.code, may crash with almost 0 probability?
@@ -260,6 +263,7 @@ func (p *peer) SendTxFragments(frags *reedsolomon.Fragments) error {
 }
 
 func (p *peer) SendBlockFragments(frags *reedsolomon.Fragments, td *big.Int) error {
+	fmt.Printf("peer latency: %v", p.GetLatency())
 	p.knownBlocks.Add(frags.ID)
 	for p.knownBlocks.Cardinality() >= maxKnownBlocks {
 		p.knownBlocks.Pop()

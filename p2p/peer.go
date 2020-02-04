@@ -113,6 +113,7 @@ type Peer struct {
 	protoErr chan error
 	closed   chan struct{}
 	disc     chan DiscReason
+	latency time.Duration
 
 	// events receives message send / receive events if set
 	events *event.Feed
@@ -131,6 +132,11 @@ func NewPeer(id enode.ID, name string, caps []Cap) *Peer {
 // ID returns the node's public key.
 func (p *Peer) ID() enode.ID {
 	return p.rw.node.ID()
+}
+
+// returns the peer's node latency
+func (p *Peer) Latency() time.Duration {
+	return p.latency
 }
 
 // Node returns the peer's node descriptor.
@@ -185,6 +191,7 @@ func newPeer(log log.Logger, conn *conn, protocols []Protocol) *Peer {
 		rw:       conn,
 		running:  protomap,
 		created:  mclock.Now(),
+		latency: 0,
 		disc:     make(chan DiscReason),
 		protoErr: make(chan error, len(protomap)+1), // protocols + pingLoop
 		closed:   make(chan struct{}),
@@ -254,7 +261,7 @@ func (p *Peer) pingLoop() {
 	for {
 		select {
 		case <-ping.C:
-			if err := SendItems(p.rw, pingMsg); err != nil {
+			if err := SendItems(p.rw, pingMsg, time.Now()); err != nil {
 				p.protoErr <- err
 				return
 			}
@@ -284,8 +291,16 @@ func (p *Peer) readLoop(errc chan<- error) {
 func (p *Peer) handle(msg Msg) error {
 	switch {
 	case msg.Code == pingMsg:
-		msg.Discard()
-		go SendItems(p.rw, pongMsg)
+		var pingTime time.Time
+		rlp.Decode(msg.Payload, &pingTime)
+		go SendItems(p.rw, pongMsg, pingTime)
+	case msg.Code == pongMsg:
+		var pingTime time.Time
+		rlp.Decode(msg.Payload, &pingTime)
+		latency := msg.ReceivedAt.Sub(pingTime)
+		p.latency = latency
+
+
 	case msg.Code == discMsg:
 		var reason [1]DiscReason
 		// This is the last message. We don't need to discard or
