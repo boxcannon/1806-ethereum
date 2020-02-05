@@ -236,7 +236,8 @@ func (p *peer) GetLatency() time.Duration {
 }
 
 func (p *peer) UpdateLatency() {
-	p.latency = p.Peer.Latency()
+	// multiply 100 only for test !
+	p.latency = 100 * p.Peer.Latency()
 }
 
 func (p *peer) SendRequest(idx common.Hash, s *bitset.BitSet, fragType uint64) {
