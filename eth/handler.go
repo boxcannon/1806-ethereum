@@ -74,7 +74,10 @@ const (
 	PeerFragsNum = 20
 
 	// time intervall to force request.
-	forceRequestCycle = time.Second
+	forceRequestCycle = 5 * time.Second
+
+	// delay threshold
+	delayThreshold = 500
 )
 
 var (
@@ -97,7 +100,7 @@ type decodedFrags struct {
 	queue []common.Hash
 }
 
-func newDecodedFrags() *decodedFrags{
+func newDecodedFrags() *decodedFrags {
 	return &decodedFrags{
 		mutex: sync.Mutex{},
 		queue: make([]common.Hash, 0),
@@ -134,12 +137,12 @@ type ProtocolManager struct {
 	whitelist map[uint64]common.Hash
 
 	// channels for fetcher, syncer, txsyncLoop
-	newPeerCh         chan *peer
-	txsyncCh          chan *txsync
-	quitSync          chan struct{}
+	newPeerCh          chan *peer
+	txsyncCh           chan *txsync
+	quitSync           chan struct{}
 	quitFragsBroadcast chan struct{}
-	quitInspector chan struct{}
-	noMorePeers       chan struct{}
+	quitInspector      chan struct{}
+	noMorePeers        chan struct{}
 
 	// wait group is used for graceful shutdowns during downloading
 	// and processing
@@ -153,22 +156,22 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 	blockchain *core.BlockChain, chaindb ethdb.Database, cacheLimit int, whitelist map[uint64]common.Hash) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
-		networkID:   networkID,
-		forkFilter:  forkid.NewFilter(blockchain),
-		eventMux:    mux,
-		rs:			 rs,
-		txpool:      txpool,
-		fragpool:    fragpool,
-		blockchain:  blockchain,
-		peers:       newPeerSet(),
-		decoded:     newDecodedFrags(),
-		whitelist:   whitelist,
-		newPeerCh:   make(chan *peer),
-		noMorePeers: make(chan struct{}),
-		txsyncCh:    make(chan *txsync),
-		quitSync:    make(chan struct{}),
+		networkID:          networkID,
+		forkFilter:         forkid.NewFilter(blockchain),
+		eventMux:           mux,
+		rs:                 rs,
+		txpool:             txpool,
+		fragpool:           fragpool,
+		blockchain:         blockchain,
+		peers:              newPeerSet(),
+		decoded:            newDecodedFrags(),
+		whitelist:          whitelist,
+		newPeerCh:          make(chan *peer),
+		noMorePeers:        make(chan struct{}),
+		txsyncCh:           make(chan *txsync),
+		quitSync:           make(chan struct{}),
 		quitFragsBroadcast: make(chan struct{}),
-		quitInspector: make(chan struct{}),
+		quitInspector:      make(chan struct{}),
 	}
 	if mode == downloader.FullSync {
 		// The database seems empty as the current block is the genesis. Yet the fast
@@ -308,7 +311,7 @@ func (pm *ProtocolManager) requestFrags(idx common.Hash, fragType uint64) {
 		bit := pm.fragpool.Load[idx].Bit
 		pm.fragpool.BigMutex.Unlock()
 		peer.SendRequest(idx, bit, fragType)
-		log.Trace("Send Frags Request","ID", idx, "Type", fragType)
+		log.Trace("Send Frags Request", "ID", idx, "Type", fragType)
 	}
 }
 
@@ -321,7 +324,7 @@ func (pm *ProtocolManager) inspector() {
 	defer forceRequest.Stop()
 
 	for {
-		select{
+		select {
 		case <-forceRequest.C:
 			pm.fragpool.BigMutex.Lock()
 			for k, v := range pm.fragpool.Load {
@@ -331,7 +334,7 @@ func (pm *ProtocolManager) inspector() {
 					if temp[k] != v.Cnt {
 						temp[k] = v.Cnt
 					} else {
-						go pm.requestFrags(k,v.Type)
+						go pm.requestFrags(k, v.Type)
 					}
 				}
 			}
@@ -472,7 +475,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 func (pm *ProtocolManager) handleMsg(p *peer) error {
 	// Read the next message from the remote peer, and ensure it's fully consumed
 	msg, err := p.rw.ReadMsg()
-	fmt.Printf("msg received, code: %d,from %x\n\n",msg.Code,p.id)
+	//fmt.Printf("lzr:msg received, code: %d,from %x\n\n", msg.Code, p.id)
 	if err != nil {
 		return err
 	}
@@ -503,7 +506,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if pm.txpool.CheckExistence(frags.ID) != nil {
 			break
 		}
-        //p.MarkTransaction(frags.ID)
+		//p.MarkTransaction(frags.ID)
 		for _, frag := range frags.Frags {
 			// Validate and mark the remote transaction
 			cnt, totalFrag, isDecoded = pm.fragpool.Insert(frag, frags.ID, frags.HopCnt, p.id, nil, msg.Code)
@@ -513,7 +516,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		case pm.fragsCh <- fragMsg{
 			frags: &frags,
 			code:  msg.Code,
-			from: p,
+			from:  p,
 			td:    nil,
 		}:
 		default:
@@ -538,7 +541,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				txs = append(txs, &tx)
 				errs := pm.txpool.AddRemotes(txs) // do not need
 				for _, err = range errs {
-					log.Error("Error in TxFragMsg","error:",err)
+					log.Error("Error in TxFragMsg", "error:", err)
 				}
 
 				// Clean maybe unneeded trash
@@ -553,7 +556,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			} else {
 				panic("RS cannot decode")
 			}
-		} else if totalFrag >= maxTotalFrag && isDecoded == 0{
+		} else if totalFrag >= maxTotalFrag && isDecoded == 0 {
 			go pm.requestFrags(frags.ID, TxFragMsg)
 		}
 
@@ -575,12 +578,12 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		case pm.fragsCh <- fragMsg{
 			frags: frags,
 			code:  msg.Code,
-			from: p,
+			from:  p,
 			td:    reqfrag.TD,
 		}:
 		default:
 		}
-		if cnt >= minFragNum && isDecoded == 0{
+		if cnt >= minFragNum && isDecoded == 0 {
 			blockrlp, flag := pm.fragpool.TryDecode(frags.ID, pm.rs)
 			if flag {
 				var block types.Block
@@ -663,7 +666,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				ID:   req.ID,
 			})
 		}
-		log.Trace("Response to RequestTxFragMsg","ID", frags.ID,"frag size",frags.Size())
+		log.Trace("Response to RequestTxFragMsg", "ID", frags.ID, "frag size", frags.Size())
 		return p.SendTxFragments(frags)
 		//p2p.Send(p.rw, TxFragMsg, frags)
 
@@ -686,7 +689,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				ID:   req.ID,
 			})
 		}
-		log.Trace("Response to RequestBlockFragMsg","ID", frags.ID,"frag size",frags.Size())
+		log.Trace("Response to RequestBlockFragMsg", "ID", frags.ID, "frag size", frags.Size())
 		return p.SendBlockFragments(frags, nil)
 		//p2p.Send(p.rw, BlockFragMsg, frags)
 
@@ -1108,18 +1111,38 @@ func (pm *ProtocolManager) BroadcastTxs(txs types.Transactions) {
 	}
 }
 
-func (pm *ProtocolManager) BroadcastReceivedFrags(frags *reedsolomon.Fragments, msgCode uint64,from *peer, td *big.Int) {
+func (pm *ProtocolManager) BroadcastReceivedFrags(frags *reedsolomon.Fragments, msgCode uint64, from *peer, td *big.Int) {
 	switch msgCode {
 	case TxFragMsg:
 		peers := pm.peers.PeersWithoutTxAndPeer(frags.ID, from)
-		for _, peer := range peers {
-			peer.AsyncSendTxFrags(frags)
+		var wwg sync.WaitGroup
+		peerNum := len(peers)
+		wwg.Add(peerNum)
+		for _, p := range peers {
+			go func(p *peer, frags *reedsolomon.Fragments) {
+				fmt.Println("forwardtxFrags-about to send: ", p.id, p.latency, time.Now().String())
+				time.Sleep(time.Duration(p.latency) * time.Millisecond)
+				p.AsyncSendTxFrags(frags)
+				fmt.Println("forwardFrags-send over: ", p.id, p.latency, time.Now().String())
+				defer wwg.Done()
+			}(p, frags)
 		}
+		wwg.Wait()
 	case BlockFragMsg:
 		peers := pm.peers.PeersWithoutBlockAndPeer(frags.ID, from)
-		for _, peer := range peers {
-			peer.AsyncSendBlockFrags(frags, td)
+		var wwg sync.WaitGroup
+		peerNum := len(peers)
+		wwg.Add(peerNum)
+		for _, p := range peers {
+			go func(p *peer, frags *reedsolomon.Fragments, td *big.Int) {
+				fmt.Println("forwardbkFrags-about to send: ", p.id, p.latency, time.Now().String())
+				time.Sleep(time.Duration(p.latency) * time.Millisecond)
+				p.AsyncSendBlockFrags(frags, td)
+				fmt.Println("forwardbkFrags-send over: ", p.id, p.latency, time.Now().String())
+				defer wwg.Done()
+			}(p, frags, td)
 		}
+		wwg.Wait()
 	}
 }
 
@@ -1131,15 +1154,25 @@ func (pm *ProtocolManager) BroadcastTxFrags(frags *reedsolomon.Fragments) {
 	}
 	peers := pm.peers.PeersWithoutTx(frags.ID)
 	peerFragsNum := PeerFragsNum
+
+	var wwg sync.WaitGroup
+	peerNum := len(peers)
+	wwg.Add(peerNum)
+
 	if len(frags.Frags) < peerFragsNum {
-		peerFragsNum = len(frags.Frags)
-		for _, peer := range peers {
-			peer.AsyncSendTxFrags(frags)
+		for _, p := range peers {
+			go func(p *peer, frags *reedsolomon.Fragments) {
+				fmt.Println("sendtxFrags-about to send: ", p.id, p.latency, time.Now().String())
+				time.Sleep(time.Duration(p.latency) * time.Millisecond)
+				p.AsyncSendTxFrags(frags)
+				fmt.Println("sendtxFrags-send over: ", p.id, p.latency, time.Now().String())
+				defer wwg.Done()
+			}(p, frags)
 		}
 	} else {
 		idx := 0
 		fragindex := fragindex0
-		for _, peer := range peers {
+		for _, p := range peers {
 			if peerFragsNum*(idx+1) > len(frags.Frags) {
 				idx = 0
 				rand.Shuffle(len(fragindex), func(i, j int) {
@@ -1151,30 +1184,82 @@ func (pm *ProtocolManager) BroadcastTxFrags(frags *reedsolomon.Fragments) {
 				fragToSend.Frags = append(fragToSend.Frags, frags.Frags[i])
 			}
 			fragToSend.ID = frags.ID
-			peer.AsyncSendTxFrags(fragToSend)
+			go func(p *peer, frags *reedsolomon.Fragments) {
+				fmt.Println("sendtxFrags-about to send: ", p.id, p.latency, time.Now().String())
+				time.Sleep(time.Duration(p.latency) * time.Millisecond)
+				p.AsyncSendTxFrags(frags)
+				fmt.Println("sendtxFrags-send over: ", p.id, p.latency, time.Now().String())
+				defer wwg.Done()
+			}(p, fragToSend)
 			idx += 1
 		}
 	}
-	log.Trace("Broadcalist Tx fragments : ", "Tx hash", frags.ID, "recipients", len(peers))
+	wwg.Wait()
+	//log.Trace("Broadcalist Tx fragments : ", "Tx hash", frags.ID, "recipients", len(peers))
 }
 
 func (pm *ProtocolManager) BroadcastBlockFrags(frags *reedsolomon.Fragments, td *big.Int) {
 	//Broadcast transaction fragments to a batch of peers not knowing about it
+
+	peers := pm.peers.PeersWithoutBlock(frags.ID)
+
+	list1 := make([]*peer, 0, len(pm.peers.peers))
+	list2 := make([]*peer, 0, len(pm.peers.peers))
+
+	for _, peer := range peers {
+		fmt.Println("zirui:", peer.id, peer.latency)
+		if peer.latency < delayThreshold {
+			list1 = append(list1, peer)
+		} else {
+			list2 = append(list2, peer)
+		}
+	}
+
+	//fmt.Println("peers:", peers)
+	//fmt.Println("list1:", list1)
+	//fmt.Println("list2:", list2)
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		fmt.Println("***list1 send", list1, time.Now().String(), frags.ID)
+		pm.BroadcastMyBlockFrags(list1, frags, td)
+		defer wg.Done()
+	}()
+	time.Sleep(time.Millisecond * 100)
+	go func() {
+		fmt.Println("***list2 send", list2, time.Now().String(), frags.ID)
+		pm.BroadcastMyBlockFrags(list2, frags, td)
+		defer wg.Done()
+	}()
+	wg.Wait()
+}
+
+func (pm *ProtocolManager) BroadcastMyBlockFrags(peers []*peer, frags *reedsolomon.Fragments, td *big.Int) {
+	var wwg sync.WaitGroup
+	peerNum := len(peers)
+	wwg.Add(peerNum)
+
 	var fragindex0 []int
 	for i, _ := range frags.Frags {
 		fragindex0 = append(fragindex0, i)
 	}
-	peers := pm.peers.PeersWithoutBlock(frags.ID)
 	peerFragsNum := PeerFragsNum
 	if len(frags.Frags) < peerFragsNum {
-		peerFragsNum = len(frags.Frags)
-		for _, peer := range peers {
-			peer.AsyncSendBlockFrags(frags, td)
+		//peerFragsNum = len(frags.Frags)
+		for _, p := range peers {
+			go func(p *peer, frags *reedsolomon.Fragments, td *big.Int) {
+				fmt.Println("sendbkFrags-about to send: ", p.id, p.latency, time.Now().String())
+				time.Sleep(time.Duration(p.latency) * time.Millisecond)
+				p.AsyncSendBlockFrags(frags, td)
+				fmt.Println("sendbkFrags-send over: ", p.id, p.latency, time.Now().String())
+				defer wwg.Done()
+			}(p, frags, td)
 		}
 	} else {
 		idx := 0
 		fragindex := fragindex0
-		for _, peer := range peers {
+		for _, p := range peers {
 			if peerFragsNum*(idx+1) > len(frags.Frags) {
 				idx = 0
 				rand.Shuffle(len(fragindex), func(i, j int) {
@@ -1186,11 +1271,17 @@ func (pm *ProtocolManager) BroadcastBlockFrags(frags *reedsolomon.Fragments, td 
 				fragToSend.Frags = append(fragToSend.Frags, frags.Frags[i])
 			}
 			fragToSend.ID = frags.ID
-			peer.AsyncSendBlockFrags(fragToSend, td)
+			go func(p *peer, frags *reedsolomon.Fragments, td *big.Int) {
+				fmt.Println("sendbkFrags-about to send: ", p.id, p.latency, time.Now().String())
+				time.Sleep(time.Duration(p.latency) * time.Millisecond)
+				p.AsyncSendBlockFrags(frags, td)
+				fmt.Println("sendbkFrags-send over: ", p.id, p.latency, time.Now().String())
+				defer wwg.Done()
+			}(p, fragToSend, td)
 			idx += 1
 		}
 	}
-	log.Trace("Broadcalist Block fragments : ", "Block hash", frags.ID, "recipients", len(peers))
+	wwg.Wait()
 }
 
 func (pm *ProtocolManager) BlockToFragments(block *types.Block) (*reedsolomon.Fragments, *big.Int) {
@@ -1261,7 +1352,7 @@ func (pm *ProtocolManager) fragsBroadcastLoop() {
 	for {
 		select {
 		case fragMsg := <-pm.fragsCh:
-			pm.BroadcastReceivedFrags(fragMsg.frags, fragMsg.code,fragMsg.from, fragMsg.td)
+			pm.BroadcastReceivedFrags(fragMsg.frags, fragMsg.code, fragMsg.from, fragMsg.td)
 		case <-pm.quitFragsBroadcast:
 			return
 		}

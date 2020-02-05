@@ -85,6 +85,8 @@ type propFragEvent struct {
 type peer struct {
 	id string
 
+	latency int
+
 	*p2p.Peer
 	rw p2p.MsgReadWriter
 
@@ -106,11 +108,13 @@ type peer struct {
 }
 
 func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
+	rand.Seed(time.Now().UnixNano())
 	return &peer{
 		Peer:             p,
 		rw:               rw,
 		version:          version,
 		id:               fmt.Sprintf("%x", p.ID().Bytes()[:8]),
+		latency:          rand.Intn(1000),
 		knownTxs:         mapset.NewSet(),
 		knownBlocks:      mapset.NewSet(),
 		queuedTxs:        make(chan []*types.Transaction, maxQueuedTxs),
@@ -218,6 +222,7 @@ func (p *peer) MarkTransaction(hash common.Hash) {
 	}
 	p.knownTxs.Add(hash)
 }
+
 /*
 func (p *peer) MarkFragment(hash common.Hash) {
 	for p.knownFrags.Cardinality() >= maxKnownFrags {
@@ -299,6 +304,8 @@ func (p *peer) AsyncSendTxFrags(frags *reedsolomon.Fragments) {
 }
 
 func (p *peer) AsyncSendBlockFrags(frags *reedsolomon.Fragments, td *big.Int) {
+	//fmt.Println("sendbkFrags-about to send: ", p.id, p.latency, time.Now().String())
+	//time.Sleep(time.Duration(p.latency) * time.Millisecond)
 	select {
 	case p.queuedBlockFrags <- &propFragEvent{frags: frags, td: td}:
 		// Mark all the transactions as known, but ensure we don't overflow our limits
@@ -309,6 +316,8 @@ func (p *peer) AsyncSendBlockFrags(frags *reedsolomon.Fragments, td *big.Int) {
 	default:
 		p.Log().Debug("Dropping block fragments propagation", "count", len(frags.Frags))
 	}
+
+	//fmt.Println("sendbkFrags-send over: ", p.id, p.latency, time.Now().String())
 }
 
 // SendNewBlockHashes announces the availability of a number of blocks through
@@ -642,6 +651,7 @@ func (ps *peerSet) PeersWithoutBlock(hash common.Hash) []*peer {
 	defer ps.lock.RUnlock()
 
 	list := make([]*peer, 0, len(ps.peers))
+
 	for _, p := range ps.peers {
 		if !p.knownBlocks.Contains(hash) {
 			list = append(list, p)
@@ -665,12 +675,12 @@ func (ps *peerSet) PeersWithoutTx(hash common.Hash) []*peer {
 	return list
 }
 
-func (ps *peerSet) PeersWithoutTxAndPeer(hash common.Hash, pout *peer) []*peer{
+func (ps *peerSet) PeersWithoutTxAndPeer(hash common.Hash, pout *peer) []*peer {
 	ps.lock.RLock()
 	defer ps.lock.RUnlock()
 
 	list := make([]*peer, 0, len(ps.peers))
-	for _, p :=range ps.peers {
+	for _, p := range ps.peers {
 		if p.id != pout.id && !p.knownTxs.Contains(hash) {
 			list = append(list, p)
 		}
@@ -678,12 +688,12 @@ func (ps *peerSet) PeersWithoutTxAndPeer(hash common.Hash, pout *peer) []*peer{
 	return list
 }
 
-func (ps *peerSet) PeersWithoutBlockAndPeer(hash common.Hash, pout *peer) []*peer{
+func (ps *peerSet) PeersWithoutBlockAndPeer(hash common.Hash, pout *peer) []*peer {
 	ps.lock.RLock()
 	defer ps.lock.RUnlock()
 
 	list := make([]*peer, 0, len(ps.peers))
-	for _, p :=range ps.peers {
+	for _, p := range ps.peers {
 		if p.id != pout.id && !p.knownBlocks.Contains(hash) {
 			list = append(list, p)
 		}
@@ -709,6 +719,7 @@ func (ps *peerSet) RandomPeer() (*peer, bool) {
 	}
 	return p, true
 }
+
 /*
 func (ps *peerSet) PeersWithoutTxFrag(hash common.Hash) []*peer {
 	ps.lock.RLock()
