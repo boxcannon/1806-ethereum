@@ -113,7 +113,8 @@ type Peer struct {
 	protoErr chan error
 	closed   chan struct{}
 	disc     chan DiscReason
-	latency mclock.AbsTime
+	latency time.Duration
+	pingTime time.Time
 
 	// events receives message send / receive events if set
 	events *event.Feed
@@ -135,7 +136,7 @@ func (p *Peer) ID() enode.ID {
 }
 
 // returns the peer's node latency
-func (p *Peer) Latency() mclock.AbsTime {
+func (p *Peer) Latency() time.Duration {
 	return p.latency
 }
 
@@ -261,7 +262,8 @@ func (p *Peer) pingLoop() {
 	for {
 		select {
 		case <-ping.C:
-			if err := SendItems(p.rw, pingMsg, mclock.Now()); err != nil {
+			p.pingTime = time.Now()
+			if err := SendItems(p.rw, pingMsg); err != nil {
 				p.protoErr <- err
 				return
 			}
@@ -291,14 +293,11 @@ func (p *Peer) readLoop(errc chan<- error) {
 func (p *Peer) handle(msg Msg) error {
 	switch {
 	case msg.Code == pingMsg:
-		var pingTime mclock.AbsTime
-		rlp.Decode(msg.Payload, &pingTime)
-		go SendItems(p.rw, pongMsg, pingTime)
+		go SendItems(p.rw, pongMsg)
+
 	case msg.Code == pongMsg:
-		var pingTime mclock.AbsTime
-		rlp.Decode(msg.Payload, &pingTime)
-		fmt.Printf("p2p.Peer handle :: pingTime: %v\nReceivedAt: %v\n", pingTime, msg.ReceivedAt)
-		latency := mclock.Now() - pingTime
+		fmt.Printf("p2p.Peer handle :: pingTime: %v\nReceivedAt: %v\n", p.pingTime, msg.ReceivedAt)
+		latency := msg.ReceivedAt.Sub(p.pingTime)
 		fmt.Printf("latency: %v\n\n", latency)
 		p.latency = latency
 
