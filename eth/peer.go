@@ -235,6 +235,10 @@ func (p *peer) GetLatency() time.Duration {
 	return p.Peer.Latency()
 }
 
+func (p *peer) UpdateLatency() {
+	p.latency = p.Peer.Latency()
+}
+
 func (p *peer) SendRequest(idx common.Hash, s *bitset.BitSet, fragType uint64) {
 	// Try to send proper msg.code, may crash with almost 0 probability?
 	bitset := s.Bytes()

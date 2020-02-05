@@ -1120,6 +1120,7 @@ func (pm *ProtocolManager) BroadcastReceivedFrags(frags *reedsolomon.Fragments, 
 		wwg.Add(peerNum)
 		for _, p := range peers {
 			go func(p *peer, frags *reedsolomon.Fragments) {
+				p.UpdateLatency()
 				fmt.Println("forwardtxFrags-about to send: ", p.id, p.latency, time.Now().String())
 				time.Sleep(p.latency)
 				p.AsyncSendTxFrags(frags)
@@ -1135,6 +1136,7 @@ func (pm *ProtocolManager) BroadcastReceivedFrags(frags *reedsolomon.Fragments, 
 		wwg.Add(peerNum)
 		for _, p := range peers {
 			go func(p *peer, frags *reedsolomon.Fragments, td *big.Int) {
+				p.UpdateLatency()
 				fmt.Println("forwardbkFrags-about to send: ", p.id, p.latency, time.Now().String())
 				time.Sleep(p.latency)
 				p.AsyncSendBlockFrags(frags, td)
@@ -1162,6 +1164,7 @@ func (pm *ProtocolManager) BroadcastTxFrags(frags *reedsolomon.Fragments) {
 	if len(frags.Frags) < peerFragsNum {
 		for _, p := range peers {
 			go func(p *peer, frags *reedsolomon.Fragments) {
+				p.UpdateLatency()
 				fmt.Println("sendtxFrags-about to send: ", p.id, p.latency, time.Now().String())
 				time.Sleep(p.latency)
 				p.AsyncSendTxFrags(frags)
@@ -1185,6 +1188,7 @@ func (pm *ProtocolManager) BroadcastTxFrags(frags *reedsolomon.Fragments) {
 			}
 			fragToSend.ID = frags.ID
 			go func(p *peer, frags *reedsolomon.Fragments) {
+				p.UpdateLatency()
 				fmt.Println("sendtxFrags-about to send: ", p.id, p.latency, time.Now().String())
 				time.Sleep(p.latency)
 				p.AsyncSendTxFrags(frags)
@@ -1207,6 +1211,7 @@ func (pm *ProtocolManager) BroadcastBlockFrags(frags *reedsolomon.Fragments, td 
 	list2 := make([]*peer, 0, len(pm.peers.peers))
 
 	for _, peer := range peers {
+		peer.UpdateLatency()
 		fmt.Println("zirui:", peer.id, peer.latency)
 		if peer.latency < delayThreshold {
 			list1 = append(list1, peer)
@@ -1249,6 +1254,7 @@ func (pm *ProtocolManager) BroadcastMyBlockFrags(peers []*peer, frags *reedsolom
 		//peerFragsNum = len(frags.Frags)
 		for _, p := range peers {
 			go func(p *peer, frags *reedsolomon.Fragments, td *big.Int) {
+				p.UpdateLatency()
 				fmt.Println("sendbkFrags-about to send: ", p.id, p.latency, time.Now().String())
 				time.Sleep(p.latency)
 				p.AsyncSendBlockFrags(frags, td)
@@ -1272,6 +1278,7 @@ func (pm *ProtocolManager) BroadcastMyBlockFrags(peers []*peer, frags *reedsolom
 			}
 			fragToSend.ID = frags.ID
 			go func(p *peer, frags *reedsolomon.Fragments, td *big.Int) {
+				p.UpdateLatency()
 				fmt.Println("sendbkFrags-about to send: ", p.id, p.latency, time.Now().String())
 				time.Sleep(p.latency)
 				p.AsyncSendBlockFrags(frags, td)
