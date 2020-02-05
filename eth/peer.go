@@ -85,7 +85,7 @@ type propFragEvent struct {
 type peer struct {
 	id string
 
-	latency int
+	latency time.Duration
 
 	*p2p.Peer
 	rw p2p.MsgReadWriter
@@ -114,7 +114,7 @@ func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
 		rw:               rw,
 		version:          version,
 		id:               fmt.Sprintf("%x", p.ID().Bytes()[:8]),
-		latency:          rand.Intn(1000),
+		latency:          p.Latency(),
 		knownTxs:         mapset.NewSet(),
 		knownBlocks:      mapset.NewSet(),
 		queuedTxs:        make(chan []*types.Transaction, maxQueuedTxs),
@@ -238,10 +238,10 @@ func (p *peer) GetLatency() time.Duration {
 func (p *peer) SendRequest(idx common.Hash, s *bitset.BitSet, fragType uint64) {
 	// Try to send proper msg.code, may crash with almost 0 probability?
 	bitset := s.Bytes()
-		if p != nil {
-			p2p.Send(p.rw, fragType + 2, []interface{}{idx, &bitset})
-		} else {
-		}
+	if p != nil {
+		p2p.Send(p.rw, fragType+2, []interface{}{idx, &bitset})
+	} else {
+	}
 }
 
 // SendTransactions sends transactions to the peer and includes the hashes
@@ -304,8 +304,6 @@ func (p *peer) AsyncSendTxFrags(frags *reedsolomon.Fragments) {
 }
 
 func (p *peer) AsyncSendBlockFrags(frags *reedsolomon.Fragments, td *big.Int) {
-	//fmt.Println("sendbkFrags-about to send: ", p.id, p.latency, time.Now().String())
-	//time.Sleep(time.Duration(p.latency) * time.Millisecond)
 	select {
 	case p.queuedBlockFrags <- &propFragEvent{frags: frags, td: td}:
 		// Mark all the transactions as known, but ensure we don't overflow our limits
@@ -316,8 +314,6 @@ func (p *peer) AsyncSendBlockFrags(frags *reedsolomon.Fragments, td *big.Int) {
 	default:
 		p.Log().Debug("Dropping block fragments propagation", "count", len(frags.Frags))
 	}
-
-	//fmt.Println("sendbkFrags-send over: ", p.id, p.latency, time.Now().String())
 }
 
 // SendNewBlockHashes announces the availability of a number of blocks through
