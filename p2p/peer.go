@@ -296,9 +296,7 @@ func (p *Peer) handle(msg Msg) error {
 		go SendItems(p.rw, pongMsg)
 
 	case msg.Code == pongMsg:
-		fmt.Printf("p2p.Peer handle :: pingTime: %v\nReceivedAt: %v\n", p.pingTime, msg.ReceivedAt)
 		latency := msg.ReceivedAt.Sub(p.pingTime)
-		fmt.Printf("latency: %v\n\n", latency)
 		p.latency = latency
 
 
