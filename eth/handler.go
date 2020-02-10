@@ -1333,6 +1333,9 @@ func (pm *ProtocolManager) minedBroadcastLoop() {
 			if frags == nil {
 				continue
 			}
+			for _, fragment := range frags.Frags {
+				pm.fragpool.Insert(fragment, frags.ID, frags.HopCnt, "", td, TxFragMsg)
+			}
 			pm.BroadcastBlockFrags(frags, td)
 			//pm.BroadcastBlock(ev.Block, true) // First propagate block to peers
 			// pm.BroadcastBlock(ev.Block, false) // Only then announce to the rest
@@ -1346,6 +1349,12 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 		case event := <-pm.txsCh:
 			for _, tx := range event.Txs {
 				frags := pm.TxToFragments(tx)
+				if frags == nil {
+					continue
+				}
+				for _, fragment := range frags.Frags {
+					pm.fragpool.Insert(fragment, frags.ID, frags.HopCnt, "",nil, TxFragMsg)
+				}
 				pm.BroadcastTxFrags(frags)
 			}
 			//pm.BroadcastTransactions(txs)
