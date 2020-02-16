@@ -718,6 +718,32 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			go pm.requestFrags(frags.ID, BlockFragMsg, line.MinHopPeer)
 		}
 
+		// a response to a former request
+		if frags.IsResp == 1 {
+			pm.fragpool.BigMutex.Lock()
+			line, _ := pm.fragpool.Load[frags.ID]
+
+			// clear waiting list
+			oldHead := line.ClearReq()
+			pm.fragpool.BigMutex.Unlock()
+
+			for node := oldHead; node!= nil; node = node.Next {
+				respFrags := pm.fragpool.Prepare(&reedsolomon.Request{
+					Load: node.Bit,
+					ID:   frags.ID,
+				})
+
+
+				np, ok := pm.peers.SearchPeer(node.PeerID)
+				if !ok{
+					log.Warn("Cannot find exact peer!")
+					continue
+				}
+				log.Trace("Response to RequestBlockFragMsg(recursive)","ID", respFrags.ID,"frag size",respFrags.Size())
+				np.SendBlockFragments(respFrags, nil)
+			}
+		}
+
 	case msg.Code == RequestTxFragMsg:
 		// Transaction fragments can be processed, parse all of them and deliver to the pool
 		var frags *reedsolomon.Fragments
@@ -763,17 +789,30 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		// already decode successfully
 		pm.fragpool.BigMutex.Lock()
-		_, flag := pm.fragpool.Load[req.ID]
+		line, flag := pm.fragpool.Load[req.ID]
 		pm.fragpool.BigMutex.Unlock()
 		if !flag {
 			log.Trace("\nOops! Block Fragments have been dropped!\n")
 			break
-		} else {
-			frags = pm.fragpool.Prepare(&reedsolomon.Request{
-				Load: bitset.From(req.Set),
-				ID:   req.ID,
-			})
 		}
+
+		// deliver request to upper node
+		bit := bitset.From(req.Set)
+		merge_bit := bit.Union(line.Bit)
+		if merge_bit.Count() < upperRequestNum {
+
+			// insert it as a reponse-waiting request
+			line.InsertReq(bit, p.id)
+
+			go pm.requestFragsByBitmap(req.ID, TxFragMsg, line.MinHopPeer, merge_bit)
+			break
+		}
+
+		// return fragments immediately
+		frags = pm.fragpool.Prepare(&reedsolomon.Request{
+			Load: bit,
+			ID:   req.ID,
+		})
 		log.Trace("Response to RequestBlockFragMsg", "ID", frags.ID, "frag size", frags.Size())
 		return p.SendBlockFragments(frags, nil)
 		//p2p.Send(p.rw, BlockFragMsg, frags)
