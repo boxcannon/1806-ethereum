@@ -83,7 +83,6 @@ type MsgWriter interface {
 	WriteMsg(Msg) error
 }
 
-
 // MsgReadWriter provides reading and writing of encoded messages.
 // Implementations should ensure that ReadMsg and WriteMsg can be
 // called simultaneously from multiple goroutines.
@@ -112,6 +111,7 @@ func Send(w MsgWriter, msgcode uint64, data interface{}) error {
 //    [e1, e2, e3]
 //
 func SendItems(w MsgWriter, msgcode uint64, elems ...interface{}) error {
+	//fmt.Printf("p2p.SendItems: time now: %v\n", elems)
 	return Send(w, msgcode, elems)
 }
 
