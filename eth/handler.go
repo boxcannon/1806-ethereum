@@ -359,7 +359,7 @@ func (pm *ProtocolManager) inspector() {
 				} else {
 					if temp[k] != v.Cnt {
 						temp[k] = v.Cnt
-					} else {
+					} else if v.IsDecoded == 0 {
 						go pm.requestFrags(k,v.Type,v.MinHopPeer)
 					}
 				}
@@ -567,7 +567,9 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				txs = append(txs, &tx)
 				errs := pm.txpool.AddRemotes(txs) // do not need
 				for _, err = range errs {
-					log.Error("Error in TxFragMsg", "error:", err)
+					if err != nil {
+						log.Error("Error in TxFragMsg", "error:", err)
+					}
 				}
 
 				// Clean maybe unneeded trash
