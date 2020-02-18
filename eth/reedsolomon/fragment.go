@@ -59,9 +59,10 @@ func (c *writeCounter) Write(b []byte) (int, error) {
 type FragmentList []*Fragment
 
 type Fragments struct {
-	Frags FragmentList
-	ID    common.Hash
-	HopCnt uint32
+	Frags 		FragmentList
+	ID    		common.Hash
+	HopCnt 		uint32
+	IsResp 		uint32
 
 	//caches
 	hash atomic.Value
@@ -72,13 +73,15 @@ func NewFragments(size int) *Fragments {
 	return &Fragments{
 		Frags: make([]*Fragment, size),
 		HopCnt: 0,
+		IsResp: 0,
 	}
 }
 
 type extFragments struct {
-	Frags []*Fragment
-	ID    common.Hash
-	HopCnt uint32
+	Frags 		[]*Fragment
+	ID    		common.Hash
+	HopCnt 		uint32
+	IsResp 		uint32
 }
 
 type extFragment struct {
@@ -97,7 +100,7 @@ func (frags *Fragments) DecodeRLP(s *rlp.Stream) error {
 	if err := s.Decode(&ef); err != nil {
 		return err
 	}
-	frags.Frags, frags.ID, frags.HopCnt = ef.Frags, ef.ID, ef.HopCnt
+	frags.Frags, frags.ID, frags.HopCnt, frags.IsResp = ef.Frags, ef.ID, ef.HopCnt, ef.IsResp
 	frags.size.Store(common.StorageSize(rlp.ListSize(size)))
 	return nil
 }
@@ -107,6 +110,7 @@ func (frags *Fragments) EncodeRLP(w io.Writer) error {
 		Frags: frags.Frags,
 		ID:    frags.ID,
 		HopCnt: frags.HopCnt,
+		IsResp: frags.IsResp,
 	})
 }
 
