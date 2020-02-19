@@ -599,6 +599,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 		// a response to a former request
 		if frags.IsResp == 1 {
+			log.Trace("Receive Tx Response","ID", frags.ID)
 			pm.fragpool.BigMutex.Lock()
 			line, _ := pm.fragpool.Load[frags.ID]
 
@@ -618,7 +619,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 					log.Warn("Cannot find exact peer!")
 					continue
 				}
-				log.Trace("Response to RequestTxFragMsg(recursive)","ID", respFrags.ID,"frag size",respFrags.Size())
+				log.Trace("Response to RequestTxFragMsg(recursive)","ID", respFrags.ID,"frag size",respFrags.Size(), "PeerID", node.PeerID)
 				np.SendTxFragments(respFrags)
 			}
 		}
@@ -720,6 +721,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 		// a response to a former request
 		if frags.IsResp == 1 {
+			log.Trace("Receive Block Response","ID", frags.ID)
 			pm.fragpool.BigMutex.Lock()
 			line, _ := pm.fragpool.Load[frags.ID]
 
@@ -739,7 +741,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 					log.Warn("Cannot find exact peer!")
 					continue
 				}
-				log.Trace("Response to RequestBlockFragMsg(recursive)","ID", respFrags.ID,"frag size",respFrags.Size())
+				log.Trace("Response to RequestBlockFragMsg(recursive)","ID", respFrags.ID,"frag size",respFrags.Size(), "PeerID", node.PeerID)
 				np.SendBlockFragments(respFrags, nil)
 			}
 		}
@@ -766,6 +768,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if merge_bit.Count() < upperRequestNum {
 
 			// insert it as a reponse-waiting request
+			log.Trace("Insert unresp tx req","ID", req.ID, "PeerID", p.id)
 			line.InsertReq(bit, p.id)
 
 			go pm.requestFragsByBitmap(req.ID, TxFragMsg, line.MinHopPeer, merge_bit)
@@ -802,6 +805,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if merge_bit.Count() < upperRequestNum {
 
 			// insert it as a reponse-waiting request
+			log.Trace("Insert unresp block req","ID", req.ID, "PeerID", p.id)
 			line.InsertReq(bit, p.id)
 
 			go pm.requestFragsByBitmap(req.ID, TxFragMsg, line.MinHopPeer, merge_bit)
