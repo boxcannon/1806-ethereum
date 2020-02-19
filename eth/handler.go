@@ -815,7 +815,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			log.Trace("Insert unresp block req","ID", req.ID, "PeerID", p.id)
 			line.InsertReq(bit, p.id)
 
-			go pm.requestFragsByBitmap(req.ID, TxFragMsg, line.MinHopPeer, merge_bit)
+			go pm.requestFragsByBitmap(req.ID, BlockFragMsg, line.MinHopPeer, merge_bit)
 			break
 		}
 
