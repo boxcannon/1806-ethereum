@@ -74,7 +74,7 @@ const (
 	maxDecodeNum = 1024
 
 	// number or Fragments each peer to send
-	PeerFragsNum = 20
+	PeerFragsNum = 10
 
 	// time intervall to force request.
 	forceRequestCycle = 5 * time.Second
