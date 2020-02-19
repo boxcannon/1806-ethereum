@@ -321,8 +321,12 @@ func (pm *ProtocolManager) requestFrags(idx common.Hash, fragType uint64, minHop
 	pm.fragpool.BigMutex.Lock()
 	bit := pm.fragpool.Load[idx].Bit
 	pm.fragpool.BigMutex.Unlock()
+	req := reedsolomon.Request{
+		Load: bit,
+		ID:   idx,
+	}
 	p.SendRequest(idx, bit, fragType)
-	log.Trace("Send Frags Request","ID", idx, "Type", fragType)
+	log.Trace("Send Frags Request","ID", idx, "Type", fragType,"size", req.Size())
 }
 
 func (pm *ProtocolManager) requestFragsByBitmap(idx common.Hash, fragType uint64, minHopPeer string, bit *bitset.BitSet) {
@@ -336,9 +340,12 @@ func (pm *ProtocolManager) requestFragsByBitmap(idx common.Hash, fragType uint64
 			return
 		}
 	}
-	
+	req := reedsolomon.Request{
+		Load: bit,
+		ID:   idx,
+	}
 	p.SendRequest(idx, bit, fragType)
-	log.Trace("Send Frags Request(recursive)","ID", idx, "Type", fragType)
+	log.Trace("Send Frags Request(recursive)","ID", idx, "Type", fragType,"size", req.Size())
 }
 
 // inspect over whether need to requestFrags
