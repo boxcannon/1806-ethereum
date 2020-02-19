@@ -31,7 +31,7 @@ import (
 
 const (
 	Primitive = 0x11d
-	EccSymbol = 160
+	EccSymbol = 200
 	NumSymbol = 40
 )
 
