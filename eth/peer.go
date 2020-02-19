@@ -148,19 +148,19 @@ func (p *peer) broadcast() {
 			if err := p.SendNewBlockHashes([]common.Hash{block.Hash()}, []uint64{block.NumberU64()}); err != nil {
 				return
 			}
-			p.Log().Trace("Announced block", "number", block.Number(), "hash", block.Hash())
+			p.Log().Trace("Announced block", "number", block.Number(), "hash", block.Hash(),)
 
 		case frags := <-p.queuedTxFrags:
 			if err := p.SendTxFragments(frags); err != nil {
 				return
 			}
-			p.Log().Trace("Propagated Transaction Fragments", "count", len(frags.Frags))
+			p.Log().Trace("Propagated Transaction Fragments", "count", len(frags.Frags),"size", frags.Size())
 
 		case prop := <-p.queuedBlockFrags:
 			if err := p.SendBlockFragments(prop.frags, prop.td); err != nil {
 				return
 			}
-			p.Log().Trace("Propagated Block Fragments", "count", len(prop.frags.Frags))
+			p.Log().Trace("Propagated Block Fragments", "count", len(prop.frags.Frags),"size", prop.frags.Size())
 
 		case <-p.term:
 			return
