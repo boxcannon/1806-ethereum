@@ -592,6 +592,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				panic("RS cannot decode")
 			}
 		} else if totalFrag >= maxTotalFrag && isDecoded == 0{
+			log.Trace("Try to request","ID", frags.ID, "Cnt", cnt, "TotalFrag", totalFrag)
 
 			pm.fragpool.BigMutex.Lock()
 			line, flag := pm.fragpool.Load[frags.ID]
@@ -714,6 +715,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				log.Debug("cannot RS decode")
 			}
 		} else if totalFrag >= maxTotalFrag && isDecoded == 0 {
+			log.Trace("Try to request","ID", frags.ID, "Cnt", cnt, "TotalFrag", totalFrag)
 
 			pm.fragpool.BigMutex.Lock()
 			line, flag := pm.fragpool.Load[frags.ID]
@@ -788,7 +790,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			Load: bit,
 			ID:   req.ID,
 		})
-		log.Trace("Response to RequestTxFragMsg","ID", frags.ID,"frag size",frags.Size())
+		log.Trace("Response to RequestTxFragMsg","ID", frags.ID,"frag size",frags.Size(), "PeerID", p.id)
 		return p.SendTxFragments(frags)
 		//p2p.Send(p.rw, TxFragMsg, frags)
 
@@ -826,7 +828,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			Load: bit,
 			ID:   req.ID,
 		})
-		log.Trace("Response to RequestBlockFragMsg", "ID", frags.ID, "frag size", frags.Size())
+		log.Trace("Response to RequestBlockFragMsg", "ID", frags.ID, "frag size", frags.Size(), "PeerID", p.id)
 		return p.SendBlockFragments(frags, nil)
 		//p2p.Send(p.rw, BlockFragMsg, frags)
 

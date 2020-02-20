@@ -199,6 +199,17 @@ func (line *FragLine) InsertReq(bit *bitset.BitSet, peerID string) uint32 {
 	return oldReqing
 }
 
+// Insert a request that should response later
+func (line *FragLine) SetIsReqing() uint32 {
+	line.mutex.Lock()
+	defer line.mutex.Unlock()
+
+	oldReqing := line.IsReqing
+	line.IsReqing = 1
+
+	return oldReqing
+}
+
 // Clear waiting list
 func (line *FragLine) ClearReq() *ReqNode {
 	line.mutex.Lock()
