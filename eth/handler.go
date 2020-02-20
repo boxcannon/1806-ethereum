@@ -776,9 +776,10 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 			// insert it as a reponse-waiting request
 			log.Trace("Insert unresp tx req","ID", req.ID, "PeerID", p.id)
-			line.InsertReq(bit, p.id)
-
-			go pm.requestFragsByBitmap(req.ID, TxFragMsg, line.MinHopPeer, merge_bit)
+			oldReqing := line.InsertReq(bit, p.id)
+			if oldReqing == 0 {
+				go pm.requestFragsByBitmap(req.ID, TxFragMsg, line.MinHopPeer, merge_bit)
+			}
 			break
 		}
 
@@ -813,9 +814,10 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 			// insert it as a reponse-waiting request
 			log.Trace("Insert unresp block req","ID", req.ID, "PeerID", p.id)
-			line.InsertReq(bit, p.id)
-
-			go pm.requestFragsByBitmap(req.ID, BlockFragMsg, line.MinHopPeer, merge_bit)
+			oldReqing := line.InsertReq(bit, p.id)
+			if oldReqing == 0 {
+				go pm.requestFragsByBitmap(req.ID, BlockFragMsg, line.MinHopPeer, merge_bit)
+			}
 			break
 		}
 

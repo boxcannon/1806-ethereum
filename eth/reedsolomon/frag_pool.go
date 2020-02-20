@@ -186,14 +186,17 @@ func (pool *FragPool) Prepare(req *Request) *Fragments {
 }
 
 // Insert a request that should response later
-func (line *FragLine) InsertReq(bit *bitset.BitSet, peerID string) {
+func (line *FragLine) InsertReq(bit *bitset.BitSet, peerID string) uint32 {
 	line.mutex.Lock()
 	defer line.mutex.Unlock()
 
+	oldReqing := line.IsReqing
 	newNode := NewReqNode(bit, peerID)
 	newNode.Next = line.ReqHead
 	line.ReqHead = newNode
 	line.IsReqing = 1
+
+	return oldReqing
 }
 
 // Clear waiting list
