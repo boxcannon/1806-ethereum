@@ -1,6 +1,8 @@
 package reedsolomon
 
-import "log"
+import (
+	"log"
+)
 
 func (r *RSCodec) DivideAndEncode(bytedata []byte) []*Fragment {
 	bytedata = append(bytedata, 1)
@@ -75,6 +77,9 @@ func (r *RSCodec) SpliceAndDecode(dataCode []*Fragment) ([]byte, bool) {
 		if ret != nil && ret[i] == 1 {
 			break
 		}
+	}
+	if i < 0 {
+		return nil, false
 	}
 	return ret[0:i], true
 }
