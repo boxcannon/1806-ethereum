@@ -602,7 +602,11 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				break
 			}
 
-			go pm.requestFrags(frags.ID, TxFragMsg, line.MinHopPeer)
+			oldReqing := line.SetIsReqing()
+			if oldReqing == 0 {
+				log.Trace("Request was already sent.", "ID", frags.ID)
+				go pm.requestFrags(frags.ID, TxFragMsg, line.MinHopPeer)
+			}
 		}
 
 		// a response to a former request
@@ -724,8 +728,12 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				fmt.Printf("\nOops! Block Fragments have been dropped!\n")
 				break
 			}
-
-			go pm.requestFrags(frags.ID, BlockFragMsg, line.MinHopPeer)
+			
+			oldReqing := line.SetIsReqing()
+			if oldReqing == 0 {
+				log.Trace("Request was already sent.", "ID", frags.ID)
+				go pm.requestFrags(frags.ID, BlockFragMsg, line.MinHopPeer)
+			}
 		}
 
 		// a response to a former request
