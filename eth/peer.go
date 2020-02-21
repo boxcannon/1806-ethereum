@@ -119,19 +119,24 @@ func (p *peer) broadcast() {
 			if err := p.SendTransactions(txs); err != nil {
 				return
 			}
-			p.Log().Trace("Broadcast transactions", "count", len(txs))
+			var size common.StorageSize
+			for _,tx := range txs {
+				size += tx.Size()
+			}
+			p.Log().Trace("Broadcast transactions", "count", len(txs), "size", size )
 
 		case prop := <-p.queuedProps:
 			if err := p.SendNewBlock(prop.block, prop.td); err != nil {
 				return
 			}
-			p.Log().Trace("Propagated block", "number", prop.block.Number(), "hash", prop.block.Hash(), "td", prop.td)
+			p.Log().Trace("Propagated block", "number", prop.block.Number(), "hash", prop.block.Hash(), "td", prop.td,"size", prop.block.Size())
 
 		case block := <-p.queuedAnns:
 			if err := p.SendNewBlockHashes([]common.Hash{block.Hash()}, []uint64{block.NumberU64()}); err != nil {
 				return
 			}
-			p.Log().Trace("Announced block", "number", block.Number(), "hash", block.Hash())
+			size := common.StorageSize(len(block.Hash().Bytes()))
+			p.Log().Trace("Announced block", "number", block.Number(), "hash", block.Hash(), "size", size)
 
 		case <-p.term:
 			return
