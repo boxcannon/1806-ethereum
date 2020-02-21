@@ -544,7 +544,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		for _, frag := range frags.Frags {
 			// Validate and mark the remote transaction
 			cnt, totalFrag, isDecoded = pm.fragpool.Insert(frag, frags.ID, frags.HopCnt, p.id, nil, msg.Code)
-			fragPos = append(fragPos, frag.pos)
+			fragPos = append(fragPos, frag.Pos())
 		}
 		log.Trace("Receive Fragments","ID", frags.ID, "Cnt", cnt, "TotalFrag", totalFrag, "Pos", fragPos)
 
@@ -653,10 +653,10 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		fragPos := make([]uint8, 0)
 		for _, frag := range frags.Frags {
 			cnt, totalFrag, isDecoded = pm.fragpool.Insert(frag, frags.ID, frags.HopCnt, p.id, reqfrag.TD, msg.Code)
-			fragPos = append(fragPos, frag.pos)
+			fragPos = append(fragPos, frag.Pos())
 		}
 		log.Trace("Receive Fragments","ID", frags.ID, "Cnt", cnt, "TotalFrag", totalFrag, "Pos", fragPos)
-		
+
 		frags.HopCnt++
 		select {
 		case pm.fragsCh <- fragMsg{

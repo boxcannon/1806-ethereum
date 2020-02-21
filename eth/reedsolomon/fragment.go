@@ -207,6 +207,10 @@ func (req *Request) Hash() common.Hash {
 	return v
 }
 
+func (frag *Fragment) Pos() uint8 {
+	return frag.pos
+}
+
 func PrintFrags(frags *Fragments) {
 	for _, frag := range frags.Frags {
 		fmt.Printf("code: %x,pos: %d\n", frag.code, frag.pos)
