@@ -116,7 +116,7 @@ func (pool *FragPool) Insert(frag *Fragment, idx common.Hash, hopCnt uint32, pee
 					flag = false
 					break
 				}
-				if tmp.Content.pos > p.Next.Content.pos {
+				if tmp.Content.pos < p.Next.Content.pos {
 					break
 				}
 			}
