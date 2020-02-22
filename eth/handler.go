@@ -546,7 +546,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			cnt, totalFrag, isDecoded = pm.fragpool.Insert(frag, frags.ID, frags.HopCnt, p.id, nil, msg.Code)
 			fragPos = append(fragPos, frag.Pos())
 		}
-		log.Trace("Receive Fragments","ID", frags.ID, "Cnt", cnt, "TotalFrag", totalFrag, "Pos", fragPos)
+		log.Trace("Receive Fragments","ID", frags.ID, "PeerID", p.id, "Cnt", cnt, "TotalFrag", totalFrag, "Pos", fragPos)
 
 		frags.HopCnt++
 		select {
@@ -655,7 +655,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			cnt, totalFrag, isDecoded = pm.fragpool.Insert(frag, frags.ID, frags.HopCnt, p.id, reqfrag.TD, msg.Code)
 			fragPos = append(fragPos, frag.Pos())
 		}
-		log.Trace("Receive Fragments","ID", frags.ID, "Cnt", cnt, "TotalFrag", totalFrag, "Pos", fragPos)
+		log.Trace("Receive Fragments","ID", frags.ID, "PeerID", p.id, "Cnt", cnt, "TotalFrag", totalFrag, "Pos", fragPos)
 
 		frags.HopCnt++
 		select {
