@@ -62,19 +62,19 @@ const (
 	minBroadcastPeers = 4
 
 	// minimum number of frags to try to decode
-	minFragNum = 40
+	minFragNum = 10
 
 	// maximum number of total frags to send request
-	maxTotalFrag = 60
+	maxTotalFrag = 16
 
 	// request will not be sent to upper node when count result of bitmap exceeds the number
-	upperRequestNum = 50
+	upperRequestNum = 5
 
 	// maximum number of decoded Fragments to store
 	maxDecodeNum = 1024
 
 	// number or Fragments each peer to send
-	PeerFragsNum = 10
+	PeerFragsNum = 2
 
 	// time intervall to force request.
 	forceRequestCycle = 5 * time.Second
@@ -546,7 +546,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			cnt, totalFrag, isDecoded = pm.fragpool.Insert(frag, frags.ID, frags.HopCnt, p.id, nil, msg.Code)
 			fragPos = append(fragPos, frag.Pos())
 		}
-		log.Trace("Receive Fragments","ID", frags.ID, "Cnt", cnt, "TotalFrag", totalFrag, "Pos", fragPos)
+		log.Trace("Receive Fragments","ID", frags.ID, "PeerID", p.id, "Cnt", cnt, "TotalFrag", totalFrag, "Pos", fragPos)
 
 		frags.HopCnt++
 		select {
@@ -655,7 +655,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			cnt, totalFrag, isDecoded = pm.fragpool.Insert(frag, frags.ID, frags.HopCnt, p.id, reqfrag.TD, msg.Code)
 			fragPos = append(fragPos, frag.Pos())
 		}
-		log.Trace("Receive Fragments","ID", frags.ID, "Cnt", cnt, "TotalFrag", totalFrag, "Pos", fragPos)
+		log.Trace("Receive Fragments","ID", frags.ID, "PeerID", p.id, "Cnt", cnt, "TotalFrag", totalFrag, "Pos", fragPos)
 
 		frags.HopCnt++
 		select {

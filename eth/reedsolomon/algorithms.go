@@ -31,8 +31,8 @@ import (
 
 const (
 	Primitive = 0x11d
-	EccSymbol = 200
-	NumSymbol = 40
+	EccSymbol = 240
+	NumSymbol = 10
 )
 
 func IntToUint8(n int) uint8 {

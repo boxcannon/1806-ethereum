@@ -107,13 +107,16 @@ func (pool *FragPool) Insert(frag *Fragment, idx common.Hash, hopCnt uint32, pee
 			line.head = tmp
 			tmp.Next = p
 		} else {
+			if tmp.Content.pos == p.Content.pos {
+				flag = false
+			}
 			for ; p.Next != nil; p = p.Next {
 				// already has this block, ignore
 				if tmp.Content.pos == p.Next.Content.pos {
 					flag = false
 					break
 				}
-				if tmp.Content.pos > p.Next.Content.pos {
+				if tmp.Content.pos < p.Next.Content.pos {
 					break
 				}
 			}
