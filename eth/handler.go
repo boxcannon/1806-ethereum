@@ -62,19 +62,19 @@ const (
 	minBroadcastPeers = 4
 
 	// minimum number of frags to try to decode
-	minFragNum = 40
+	minFragNum = 10
 
 	// maximum number of total frags to send request
-	maxTotalFrag = 60
+	maxTotalFrag = 16
 
 	// request will not be sent to upper node when count result of bitmap exceeds the number
-	upperRequestNum = 50
+	upperRequestNum = 5
 
 	// maximum number of decoded Fragments to store
 	maxDecodeNum = 1024
 
 	// number or Fragments each peer to send
-	PeerFragsNum = 10
+	PeerFragsNum = 2
 
 	// time intervall to force request.
 	forceRequestCycle = 5 * time.Second
