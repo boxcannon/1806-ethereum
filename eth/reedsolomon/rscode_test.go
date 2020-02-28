@@ -1,12 +1,14 @@
 package reedsolomon
 
 import (
+	"Go-RSCodec-master/reedsolomon"
 	"crypto/ecdsa"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
+	"log"
 	"math/big"
 	"testing"
 )

@@ -80,7 +80,7 @@ const (
 	forceRequestCycle = 5 * time.Second
 
 	// delay threshold
-	// multiply 100 only for test !
+	// multiply 100 only foitr test !
 	delayThreshold = 100 * time.Millisecond
 )
 
