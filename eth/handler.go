@@ -1462,6 +1462,9 @@ func (pm *ProtocolManager) BlockToFragments(block *types.Block) (*reedsolomon.Fr
 	var fingerPrint	reedsolomon.FragHash
 	for i, item := range id {
 		fingerPrint[i] = item
+		if i == reedsolomon.HashLength - 1 {
+			break
+		}
 	}
 	tmp.ID = fingerPrint
 	for _, frag := range frags {
@@ -1478,6 +1481,9 @@ func (pm *ProtocolManager) TxToFragments(tx *types.Transaction) *reedsolomon.Fra
 	var fingerPrint reedsolomon.FragHash
 	for i, item := range id {
 		fingerPrint[i] = item
+		if i == reedsolomon.HashLength - 1 {
+			break
+		}
 	}
 	tmp.ID = fingerPrint
 	for _, frag := range frags {
