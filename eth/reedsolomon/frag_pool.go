@@ -1,7 +1,6 @@
 package reedsolomon
 
 import (
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/willf/bitset"
 	"math/big"
 	"sync"
@@ -41,7 +40,7 @@ type FragLine struct {
 
 type FragPool struct {
 	BigMutex	sync.Mutex
-	Load		map[common.Hash]*FragLine
+	Load		map[FragHash]*FragLine
 }
 
 func NewFragLine(newNode *FragNode, fragType uint64, minHop uint32, minHopPeer string) *FragLine{
@@ -63,7 +62,7 @@ func NewFragLine(newNode *FragNode, fragType uint64, minHop uint32, minHopPeer s
 
 func NewFragPool() *FragPool {
 	return &FragPool{
-		Load:  make(map[common.Hash]*FragLine, 0),
+		Load:  make(map[FragHash]*FragLine, 0),
 	}
 }
 
@@ -81,7 +80,7 @@ func (pool *FragPool) Stop() {
 }
 
 // Insert a new fragment into pool
-func (pool *FragPool) Insert(frag *Fragment, idx common.Hash, hopCnt uint32, peerID string, td *big.Int, fragType uint64) (uint64, uint64, uint32) {
+func (pool *FragPool) Insert(frag *Fragment, idx FragHash, hopCnt uint32, peerID string, td *big.Int, fragType uint64) (uint64, uint64, uint32) {
 	tmp := &FragNode {
 		Content: frag,
 		Next:    nil,
@@ -139,14 +138,14 @@ func (pool *FragPool) Insert(frag *Fragment, idx common.Hash, hopCnt uint32, pee
 }
 
 // Delete maybe unused frags
-func (pool *FragPool) Clean(pos common.Hash) {
+func (pool *FragPool) Clean(pos FragHash) {
 	pool.BigMutex.Lock()
 	delete(pool.Load, pos)
 	pool.BigMutex.Unlock()
 }
 
 // Try to use fragments to decode, return res and whether succeeds
-func (pool *FragPool) TryDecode(pos common.Hash, rs *RSCodec) ([]byte, bool) {
+func (pool *FragPool) TryDecode(pos FragHash, rs *RSCodec) ([]byte, bool) {
 	data := make([]*Fragment, 0)
 	pool.BigMutex.Lock()
 	p := pool.Load[pos].head
