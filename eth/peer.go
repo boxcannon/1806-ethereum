@@ -225,14 +225,14 @@ func (p *peer) MarkTransaction(hash common.Hash) {
 	p.knownTxs.Add(hash)
 }
 
-/*
-func (p *peer) MarkFragment(hash common.Hash) {
+
+func (p *peer) MarkFragment(id reedsolomon.FragHash) {
 	for p.knownFrags.Cardinality() >= maxKnownFrags {
 		p.knownFrags.Pop()
 	}
-	p.knownFrags.Add(hash)
+	p.knownFrags.Add(id)
 }
-*/
+
 func (p *peer) GetLatency() time.Duration {
 	return p.Peer.Latency()
 }
@@ -301,9 +301,9 @@ func (p *peer) AsyncSendTxFrags(frags *reedsolomon.Fragments) {
 	select {
 	case p.queuedTxFrags <- frags:
 		// Mark all the transactions as known, but ensure we don't overflow our limits
-		p.knownTxs.Add(frags.ID)
-		for p.knownTxs.Cardinality() >= maxKnownTxs {
-			p.knownTxs.Pop()
+		p.knownFrags.Add(frags.ID)
+		for p.knownFrags.Cardinality() >= maxKnownFrags {
+			p.knownFrags.Pop()
 		}
 	default:
 		p.Log().Debug("Dropping transaction fragments propagation", "count", len(frags.Frags))
@@ -314,9 +314,9 @@ func (p *peer) AsyncSendBlockFrags(frags *reedsolomon.Fragments, td *big.Int) {
 	select {
 	case p.queuedBlockFrags <- &propFragEvent{frags: frags, td: td}:
 		// Mark all the transactions as known, but ensure we don't overflow our limits
-		p.knownBlocks.Add(frags.ID)
-		for p.knownBlocks.Cardinality() >= maxKnownBlocks {
-			p.knownBlocks.Pop()
+		p.knownFrags.Add(frags.ID)
+		for p.knownFrags.Cardinality() >= maxKnownFrags {
+			p.knownFrags.Pop()
 		}
 	default:
 		p.Log().Debug("Dropping block fragments propagation", "count", len(frags.Frags))

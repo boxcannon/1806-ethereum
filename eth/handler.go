@@ -1463,6 +1463,7 @@ func (pm *ProtocolManager) BlockToFragments(block *types.Block) (*reedsolomon.Fr
 	for i, item := range id {
 		fingerPrint[i] = item
 		if i == reedsolomon.HashLength - 1 {
+			log.Debug("finger print of fragment", "fingerprint", fingerPrint)
 			break
 		}
 	}
