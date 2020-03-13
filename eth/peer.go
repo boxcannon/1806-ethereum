@@ -43,7 +43,7 @@ var (
 const (
 	maxKnownTxs    = 32768 // Maximum transactions hashes to keep in the known list (prevent DOS)
 	maxKnownBlocks = 1024  // Maximum block hashes to keep in the known list (prevent DOS)
-
+	maxKnownFrags = 32768
 	// maxQueuedTxs is the maximum number of transaction lists to queue up before
 	// dropping broadcasts. This is a sensitive number as a transaction list might
 	// contain a single transaction, or thousands.
@@ -99,6 +99,7 @@ type peer struct {
 
 	knownTxs         mapset.Set                // Set of transaction hashes known to be known by this peer
 	knownBlocks      mapset.Set                // Set of block hashes known to be known by this peer
+	knownFrags mapset.Set
 	queuedTxs        chan []*types.Transaction // Queue of transactions to broadcast to the peer
 	queuedProps      chan *propEvent           // Queue of blocks to broadcast to the peer
 	queuedAnns       chan *types.Block         // Queue of blocks to announce to the peer
@@ -117,6 +118,7 @@ func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
 		latency:          p.Latency(),
 		knownTxs:         mapset.NewSet(),
 		knownBlocks:      mapset.NewSet(),
+		knownFrags: mapset.NewSet(),
 		queuedTxs:        make(chan []*types.Transaction, maxQueuedTxs),
 		queuedProps:      make(chan *propEvent, maxQueuedProps),
 		queuedAnns:       make(chan *types.Block, maxQueuedAnns),
@@ -240,7 +242,7 @@ func (p *peer) UpdateLatency() {
 	p.latency = 100 * p.Peer.Latency()
 }
 
-func (p *peer) SendRequest(idx common.Hash, s *bitset.BitSet, fragType uint64) {
+func (p *peer) SendRequest(idx reedsolomon.FragHash, s *bitset.BitSet, fragType uint64) {
 	// Try to send proper msg.code, may crash with almost 0 probability?
 	bitset := s.Bytes()
 	if p != nil {
@@ -263,17 +265,17 @@ func (p *peer) SendTransactions(txs types.Transactions) error {
 }
 
 func (p *peer) SendTxFragments(frags *reedsolomon.Fragments) error {
-	p.knownTxs.Add(frags.ID)
-	for p.knownTxs.Cardinality() >= maxKnownTxs {
-		p.knownTxs.Pop()
+	p.knownFrags.Add(frags.ID)
+	for p.knownFrags.Cardinality() >= maxKnownFrags {
+		p.knownFrags.Pop()
 	}
 	return p2p.Send(p.rw, TxFragMsg, frags)
 }
 
 func (p *peer) SendBlockFragments(frags *reedsolomon.Fragments, td *big.Int) error {
-	p.knownBlocks.Add(frags.ID)
-	for p.knownBlocks.Cardinality() >= maxKnownBlocks {
-		p.knownBlocks.Pop()
+	p.knownFrags.Add(frags.ID)
+	for p.knownFrags.Cardinality() >= maxKnownFrags {
+		p.knownFrags.Pop()
 	}
 	return p2p.Send(p.rw, BlockFragMsg, []interface{}{frags, td})
 }
@@ -676,7 +678,20 @@ func (ps *peerSet) PeersWithoutTx(hash common.Hash) []*peer {
 	return list
 }
 
-func (ps *peerSet) PeersWithoutTxAndPeer(hash common.Hash, pout *peer) []*peer {
+func (ps *peerSet) PeersWithoutFrag(id reedsolomon.FragHash) []*peer {
+	ps.lock.RLock()
+	defer ps.lock.RUnlock()
+
+	list := make([]*peer, 0, len(ps.peers))
+	for _, p := range ps.peers {
+		if !p.knownFrags.Contains(id) {
+			list = append(list, p)
+		}
+	}
+	return list
+}
+
+func (ps *peerSet) PeersWithoutTxAndPeer(hash reedsolomon.FragHash, pout *peer) []*peer {
 	ps.lock.RLock()
 	defer ps.lock.RUnlock()
 
@@ -689,13 +704,26 @@ func (ps *peerSet) PeersWithoutTxAndPeer(hash common.Hash, pout *peer) []*peer {
 	return list
 }
 
-func (ps *peerSet) PeersWithoutBlockAndPeer(hash common.Hash, pout *peer) []*peer {
+func (ps *peerSet) PeersWithoutBlockAndPeer(hash reedsolomon.FragHash, pout *peer) []*peer {
 	ps.lock.RLock()
 	defer ps.lock.RUnlock()
 
 	list := make([]*peer, 0, len(ps.peers))
 	for _, p := range ps.peers {
 		if p.id != pout.id && !p.knownBlocks.Contains(hash) {
+			list = append(list, p)
+		}
+	}
+	return list
+}
+
+func (ps *peerSet) PeersWithoutFragAndPeer(id reedsolomon.FragHash, pout *peer) []*peer {
+	ps.lock.RLock()
+	defer ps.lock.RUnlock()
+
+	list := make([]*peer, 0, len(ps.peers))
+	for _, p := range ps.peers {
+		if p.id != pout.id && !p.knownFrags.Contains(id) {
 			list = append(list, p)
 		}
 	}

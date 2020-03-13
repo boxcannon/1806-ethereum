@@ -196,7 +196,7 @@ type newBlockFragData struct {
 }
 
 type newRequestFragData struct {
-	ID common.Hash
+	ID reedsolomon.FragHash
 	Set []uint64
 }
 

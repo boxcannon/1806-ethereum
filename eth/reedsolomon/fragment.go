@@ -10,6 +10,11 @@ import (
 	"sync/atomic"
 )
 
+const (
+	// HashLength of Fragment ID
+	HashLength = 4
+)
+
 // Fragment of Block or Transactions
 type Fragment struct {
 	pos  uint8
@@ -22,7 +27,7 @@ type Fragment struct {
 
 type Request struct {
 	Load *bitset.BitSet
-	ID   common.Hash
+	ID   FragHash
 
 	//caches
 	hash atomic.Value
@@ -35,7 +40,7 @@ func NewFragment(size int) *Fragment {
 	}
 }
 
-func NewRequest(ID common.Hash, s *bitset.BitSet) *Request{
+func NewRequest(ID FragHash, s *bitset.BitSet) *Request{
 	return &Request{
 		Load: s,
 		ID:   ID,
@@ -56,13 +61,15 @@ func (c *writeCounter) Write(b []byte) (int, error) {
 	}
 }*/
 
+type FragHash [HashLength]byte
+
 type FragmentList []*Fragment
 
 type Fragments struct {
-	Frags 		FragmentList
-	ID    		common.Hash
-	HopCnt 		uint32
-	IsResp 		uint32
+	Frags  FragmentList
+	ID     FragHash
+	HopCnt uint32
+	IsResp uint32
 
 	//caches
 	hash atomic.Value
@@ -78,10 +85,10 @@ func NewFragments(size int) *Fragments {
 }
 
 type extFragments struct {
-	Frags 		[]*Fragment
-	ID    		common.Hash
-	HopCnt 		uint32
-	IsResp 		uint32
+	Frags  []*Fragment
+	ID     FragHash
+	HopCnt uint32
+	IsResp uint32
 }
 
 type extFragment struct {
@@ -90,8 +97,8 @@ type extFragment struct {
 }
 
 type extRequest struct {
-	Load  *bitset.BitSet
-	ID    common.Hash
+	Load *bitset.BitSet
+	ID   FragHash
 }
 
 func (frags *Fragments) DecodeRLP(s *rlp.Stream) error {
