@@ -239,7 +239,7 @@ func (p *peer) GetLatency() time.Duration {
 
 func (p *peer) UpdateLatency() {
 	// multiply 100 only for test !
-	p.latency = 100 * p.Peer.Latency()
+	p.latency = 10 * p.Peer.Latency()
 }
 
 func (p *peer) SendRequest(idx reedsolomon.FragHash, s *bitset.BitSet, fragType uint64) {
