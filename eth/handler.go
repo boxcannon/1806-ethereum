@@ -1418,7 +1418,7 @@ func (pm *ProtocolManager) BroadcastBlockFrags(frags *reedsolomon.Fragments, td 
 		pm.BroadcastMyBlockFrags(list1, frags, td)
 		defer wg.Done()
 	}()
-	time.Sleep(time.Millisecond * 100)
+	//time.Sleep(time.Millisecond * 100)
 	go func() {
 		fmt.Println("***list2 send", list2, time.Now().String(), frags.ID)
 		pm.BroadcastMyBlockFrags(list2, frags, td)
