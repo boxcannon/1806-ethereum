@@ -1289,15 +1289,47 @@ func (pm *ProtocolManager) BroadcastReceivedFrags(frags *reedsolomon.Fragments, 
 		var wwg sync.WaitGroup
 		peerNum := len(peers)
 		wwg.Add(peerNum)
-		for _, p := range peers {
-			go func(p *peer, frags *reedsolomon.Fragments, td *big.Int) {
-				p.UpdateLatency()
-				fmt.Println("forwardbkFrags-about to send: ", p.id, p.latency, time.Now().String())
-				time.Sleep(p.latency)
-				p.AsyncSendBlockFrags(frags, td)
-				fmt.Println("forwardbkFrags-send over: ", p.id, p.latency, time.Now().String())
-				defer wwg.Done()
-			}(p, frags, td)
+		var fragindex0 []int
+		for i, _ := range frags.Frags {
+			fragindex0 = append(fragindex0, i)
+		}
+		peerFragsNum := PeerFragsNum
+		if len(frags.Frags) < peerFragsNum {
+			for _, p := range peers {
+				go func(p *peer, frags *reedsolomon.Fragments, td *big.Int) {
+					p.UpdateLatency()
+					fmt.Println("forwardbkFrags-about to send: ", p.id, p.latency, time.Now().String())
+					time.Sleep(p.latency)
+					p.AsyncSendBlockFrags(frags, td)
+					fmt.Println("forwardbkFrags-send over: ", p.id, p.latency, time.Now().String())
+					defer wwg.Done()
+				}(p, frags, td)
+			}
+		} else {
+			idx := 0
+			fragindex := fragindex0
+			for _, p := range peers {
+				if peerFragsNum*(idx+1) > len(frags.Frags) {
+					idx = 0
+					rand.Shuffle(len(fragindex), func(i, j int) {
+						fragindex[i], fragindex[j] = fragindex[j], fragindex[i]
+					})
+				}
+				fragToSend := reedsolomon.NewFragments(0)
+				for _, i := range fragindex[peerFragsNum*idx : peerFragsNum*(idx+1)] {
+					fragToSend.Frags = append(fragToSend.Frags, frags.Frags[i])
+				}
+				fragToSend.ID = frags.ID
+				go func(p *peer, frags *reedsolomon.Fragments, td *big.Int) {
+					p.UpdateLatency()
+					fmt.Println("sendbkFrags-about to send: ", p.id, p.latency, time.Now().String())
+					time.Sleep(p.latency)
+					p.AsyncSendBlockFrags(frags, td)
+					fmt.Println("sendbkFrags-send over: ", p.id, p.latency, time.Now().String())
+					defer wwg.Done()
+				}(p, fragToSend, td)
+				idx += 1
+			}
 		}
 		wwg.Wait()
 	}
@@ -1404,7 +1436,7 @@ func (pm *ProtocolManager) BroadcastMyBlockFrags(peers []*peer, frags *reedsolom
 	for i, _ := range frags.Frags {
 		fragindex0 = append(fragindex0, i)
 	}
-	peerFragsNum := PeerFragsNum
+	peerFragsNum := minFragNum
 	if len(frags.Frags) < peerFragsNum {
 		//peerFragsNum = len(frags.Frags)
 		for _, p := range peers {
@@ -1503,11 +1535,11 @@ func (pm *ProtocolManager) minedBroadcastLoop() {
 				continue
 			}
 			for _, fragment := range frags.Frags {
- 				pm.fragpool.Insert(fragment, frags.ID, frags.HopCnt, "", td, TxFragMsg)
+ 				pm.fragpool.Insert(fragment, frags.ID, frags.HopCnt, "", td, BlockFragMsg)
  			}
 			pm.BroadcastBlockFrags(frags, td)
 			//pm.BroadcastBlock(ev.Block, true) // First propagate block to peers
-			// pm.BroadcastBlock(ev.Block, false) // Only then announce to the rest
+			//pm.BroadcastBlock(ev.Block, false) // Only then announce to the rest
 		}
 	}
 }
