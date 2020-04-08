@@ -138,31 +138,36 @@ func (p *peer) broadcast() {
 			if err := p.SendTransactions(txs); err != nil {
 				return
 			}
-			p.Log().Trace("Broadcast transactions", "count", len(txs))
+			var size common.StorageSize
+			for _,tx := range txs {
+				size += tx.Size()
+			}
+			p.Log().Trace("Broadcast transactions", "count", len(txs),"txsize", size)
 
 		case prop := <-p.queuedProps:
 			if err := p.SendNewBlock(prop.block, prop.td); err != nil {
 				return
 			}
-			p.Log().Trace("Propagated block", "number", prop.block.Number(), "hash", prop.block.Hash(), "td", prop.td)
+			p.Log().Trace("Propagated block", "number", prop.block.Number(), "hash", prop.block.Hash(), "td", prop.td,"blocksize", prop.block.Size())
 
 		case block := <-p.queuedAnns:
 			if err := p.SendNewBlockHashes([]common.Hash{block.Hash()}, []uint64{block.NumberU64()}); err != nil {
 				return
 			}
-			p.Log().Trace("Announced block", "number", block.Number(), "hash", block.Hash(),)
+			size := common.StorageSize(len(block.Hash().Bytes()))
+			p.Log().Trace("Announced block", "number", block.Number(), "hash", block.Hash(),"blocksize", size)
 
 		case frags := <-p.queuedTxFrags:
 			if err := p.SendTxFragments(frags); err != nil {
 				return
 			}
-			p.Log().Trace("Propagated Transaction Fragments", "count", len(frags.Frags),"size", frags.Size())
+			p.Log().Trace("Propagated Transaction Fragments", "count", len(frags.Frags),"fragsize", frags.Size())
 
 		case prop := <-p.queuedBlockFrags:
 			if err := p.SendBlockFragments(prop.frags, prop.td); err != nil {
 				return
 			}
-			p.Log().Trace("Propagated Block Fragments", "count", len(prop.frags.Frags),"size", prop.frags.Size())
+			p.Log().Trace("Propagated Block Fragments", "count", len(prop.frags.Frags),"fragsize", prop.frags.Size())
 
 		case <-p.term:
 			return

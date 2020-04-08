@@ -326,7 +326,7 @@ func (pm *ProtocolManager) requestFrags(idx reedsolomon.FragHash, fragType uint6
 		ID:   idx,
 	}
 	p.SendRequest(idx, bit, fragType)
-	log.Trace("Send Frags Request","ID", idx, "Type", fragType,"size", req.Size())
+	log.Trace("Send Frags Request","ID", idx, "Type", fragType,"reqsize", req.Size())
 }
 
 func (pm *ProtocolManager) requestFragsByBitmap(idx reedsolomon.FragHash, fragType uint64, minHopPeer string, bit *bitset.BitSet) {
@@ -345,7 +345,7 @@ func (pm *ProtocolManager) requestFragsByBitmap(idx reedsolomon.FragHash, fragTy
 		ID:   idx,
 	}
 	p.SendRequest(idx, bit, fragType)
-	log.Trace("Send Frags Request(recursive)","ID", idx, "Type", fragType,"size", req.Size())
+	log.Trace("Send Frags Request(recursive)","ID", idx, "Type", fragType,"reqsize", req.Size())
 }
 
 // inspect over whether need to requestFrags
@@ -549,6 +549,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		log.Trace("Receive Fragments","ID", frags.ID, "Cnt", cnt, "TotalFrag", totalFrag, "Pos", fragPos)
 
 		frags.HopCnt++
+		log.Trace("TxFrags HopCnt ++", "ID",frags.ID, "HopCnt",frags.HopCnt, "peerID", p.id)
 		select {
 		case pm.fragsCh <- fragMsg{
 			frags: &frags,
@@ -658,6 +659,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		log.Trace("Receive Fragments","ID", frags.ID, "Cnt", cnt, "TotalFrag", totalFrag, "Pos", fragPos)
 
 		frags.HopCnt++
+		log.Trace("BlockFrags HopCnt ++", "ID",frags.ID, "HopCnt",frags.HopCnt, "peerID", p.id)
 		select {
 		case pm.fragsCh <- fragMsg{
 			frags: frags,
@@ -674,6 +676,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				if err = rlp.Decode(bytes.NewReader(blockrlp), &block); err != nil {
 					return errResp(ErrDecode, "%v: %v", msg, err)
 				}
+				log.Trace("Block RSdecode successful", "ID", block.Hash(), "peerID", p.id)
 				//if block.Hash() != frags.ID {
 				//	return errResp(ErrDecode, "wrong RS decode result")
 				//}
@@ -806,7 +809,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			Load: bit,
 			ID:   req.ID,
 		})
-		log.Trace("Response to RequestTxFragMsg","ID", frags.ID,"frag size",frags.Size(), "PeerID", p.id)
+		log.Trace("Response to RequestTxFragMsg","ID", frags.ID, "fragsize",frags.Size(), "PeerID", p.id,)
 		return p.SendTxFragments(frags)
 		//p2p.Send(p.rw, TxFragMsg, frags)
 
@@ -844,7 +847,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			Load: bit,
 			ID:   req.ID,
 		})
-		log.Trace("Response to RequestBlockFragMsg", "ID", frags.ID, "frag size", frags.Size(), "PeerID", p.id)
+		log.Trace("Response to RequestBlockFragMsg", "ID", frags.ID, "fragsize", frags.Size(), "PeerID", p.id)
 		return p.SendBlockFragments(frags, nil)
 		//p2p.Send(p.rw, BlockFragMsg, frags)
 
